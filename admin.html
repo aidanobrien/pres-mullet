@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survey Results Generator - Admin</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="admin-container" id="adminContainer">
+        <h1 class="admin-title">Survey Results Generator</h1>
+        <p class="admin-description">
+            Upload your survey CSV to automatically generate a shareable clickthrough presentation for your team.
+        </p>
+        
+        <div class="upload-area" id="uploadArea" onclick="document.getElementById('csvFile').click()">
+            <div class="upload-icon">📊</div>
+            <div class="upload-text">Drop your CSV file here</div>
+            <div class="upload-subtext">or click to browse</div>
+        </div>
+        
+        <input type="file" id="csvFile" class="file-input" accept=".csv" onchange="handleFileUpload(event)">
+        
+        <button class="generate-btn" id="generateBtn" disabled onclick="generatePresentation()">
+            Generate Presentation
+        </button>
+        
+        <div class="share-section" id="shareSection">
+            <h3 class="share-title">🎉 Presentation Ready!</h3>
+            <div class="share-link" id="shareLink">
+                Click "Generate" to create your shareable link
+            </div>
+            <div class="share-actions">
+                <button class="copy-btn" onclick="copyShareLink()">📋 Copy Link</button>
+                <button class="preview-btn" onclick="previewPresentation()">👀 Preview</button>
+                <button class="reset-btn" onclick="resetAdmin()">🔄 Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
