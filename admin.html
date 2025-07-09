@@ -21,6 +21,22 @@
         
         <input type="file" id="csvFile" class="file-input" accept=".csv" onchange="handleFileUpload(event)">
         
+        <div class="api-config-section" id="apiConfigSection">
+            <h3 class="customization-title">🔑 API Configuration</h3>
+            <p class="customization-description">Add your Claude API key for intelligent analysis (get one from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>)</p>
+            
+            <div class="api-input-group">
+                <label for="claudeApiKey">Claude API Key:</label>
+                <input type="password" id="claudeApiKey" placeholder="sk-ant-..." onchange="saveApiKey()">
+                <small>Your API key is stored locally and never sent to our servers</small>
+            </div>
+            
+            <div class="api-status" id="apiStatus">
+                <span class="status-indicator offline">●</span>
+                <span>API not configured</span>
+            </div>
+        </div>
+
         <div class="page-builder-section" id="pageBuilderSection" style="display: none;">
             <h3 class="customization-title">📋 Build Your Presentation</h3>
             <p class="customization-description">Define each page and tell us what to extract from your CSV data</p>

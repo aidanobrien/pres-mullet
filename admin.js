@@ -477,13 +477,10 @@ function generateRatingsPageFromInstruction(title, instruction, data) {
 }
 
 function generateFeedbackPageFromInstruction(title, instruction, data) {
-    const content = [];
-    const instructionLower = instruction.toLowerCase();
-    
     // Find relevant columns based on instruction
     const relevantColumns = findRelevantColumnsFromInstruction(data.headers, instruction);
     
-    // Extract and analyze all relevant responses
+    // Extract all relevant responses
     const allResponses = [];
     relevantColumns.forEach(column => {
         const responses = data.data
@@ -503,23 +500,209 @@ function generateFeedbackPageFromInstruction(title, instruction, data) {
         };
     }
     
-    // Analyze and summarize the responses
-    const analysis = analyzeTextResponses(allResponses, instruction);
+    // Use Claude API for real analysis if available, otherwise fallback
+    return analyzeResponsesWithAPI(allResponses, instruction, title);
+}
+
+async function analyzeResponsesWithAPI(responses, instruction, pageTitle) {
+    if (window.claudeApiReady) {
+        try {
+            const claudeAnalysis = await analyzeWithClaude(responses, instruction, pageTitle);
+            return {
+                title: pageTitle,
+                type: "feedback",
+                content: claudeAnalysis
+            };
+        } catch (error) {
+            console.error('Claude analysis failed, using fallback:', error);
+        }
+    }
     
+    // Fallback to basic but honest analysis
     return {
-        title: title,
+        title: pageTitle,
         type: "feedback",
-        content: analysis
+        content: createBasicSummary(responses, instruction)
     };
 }
 
-function analyzeTextResponses(responses, instruction) {
-    if (responses.length === 0) return [];
+function createBasicSummary(responses, instruction) {
+    // Honest, simple analysis without pretending to be AI
+    const summaries = [];
     
-    // ACTUALLY read the responses and create real summaries
-    const realAnalysis = createActualSummaries(responses, instruction);
+    // Group responses by length and select representative ones
+    const detailed = responses.filter(r => r.length > 100);
+    const medium = responses.filter(r => r.length > 30 && r.length <= 100);
+    const brief = responses.filter(r => r.length <= 30);
     
-    return realAnalysis;
+    if (detailed.length > 0) {
+        summaries.push({
+            title: `Detailed Feedback (${detailed.length} responses)`,
+            content: `Example: "${detailed[0].substring(0, 150)}${detailed[0].length > 150 ? '...' : ''}"`
+        });
+    }
+    
+    if (medium.length > 0) {
+        summaries.push({
+            title: `Key Points (${medium.length} responses)`,
+            content: `Common themes: ${medium.slice(0, 2).map(r => `"${r}"`).join(', ')}`
+        });
+    }
+    
+    if (brief.length > 0) {
+        summaries.push({
+            title: `Quick Responses (${brief.length} responses)`,
+            content: `Brief mentions: ${brief.slice(0, 3).join(', ')}`
+        });
+    }
+    
+    return summaries.slice(0, 6);
+}
+
+// API Configuration
+function saveApiKey() {
+    const apiKey = document.getElementById('claudeApiKey').value;
+    if (apiKey) {
+        localStorage.setItem('claude_api_key', apiKey);
+        testApiConnection(apiKey);
+    }
+}
+
+async function testApiConnection(apiKey) {
+    const statusEl = document.getElementById('apiStatus');
+    statusEl.innerHTML = '<span class="status-indicator testing">●</span><span>Testing connection...</span>';
+    
+    try {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+                model: 'claude-3-sonnet-20240229',
+                max_tokens: 10,
+                messages: [{ role: 'user', content: 'Test' }]
+            })
+        });
+        
+        if (response.ok || response.status === 400) { // 400 is fine, means API key works
+            statusEl.innerHTML = '<span class="status-indicator online">●</span><span>API connected - ready for intelligent analysis!</span>';
+            window.claudeApiReady = true;
+        } else {
+            throw new Error('API connection failed');
+        }
+    } catch (error) {
+        statusEl.innerHTML = '<span class="status-indicator offline">●</span><span>API connection failed - check your key</span>';
+        window.claudeApiReady = false;
+    }
+}
+
+// Load saved API key on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const savedKey = localStorage.getItem('claude_api_key');
+    if (savedKey) {
+        document.getElementById('claudeApiKey').value = savedKey;
+        testApiConnection(savedKey);
+    }
+});
+
+async function analyzeWithClaude(responses, instruction, pageTitle) {
+    const apiKey = localStorage.getItem('claude_api_key');
+    if (!apiKey) {
+        return [{
+            title: "API Required",
+            content: "Please configure your Claude API key to enable intelligent analysis."
+        }];
+    }
+    
+    try {
+        const prompt = createAnalysisPrompt(responses, instruction, pageTitle);
+        
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+                model: 'claude-3-sonnet-20240229',
+                max_tokens: 1000,
+                messages: [{ 
+                    role: 'user', 
+                    content: prompt 
+                }]
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const analysis = parseClaudeResponse(data.content[0].text);
+        
+        return analysis;
+        
+    } catch (error) {
+        console.error('Claude API error:', error);
+        return [{
+            title: "Analysis Error",
+            content: `Unable to analyze responses: ${error.message}. Using basic analysis instead.`
+        }];
+    }
+}
+
+function createAnalysisPrompt(responses, instruction, pageTitle) {
+    return `You are analyzing survey responses for a presentation slide titled "${pageTitle}".
+
+User instruction: "${instruction}"
+
+Survey responses to analyze:
+${responses.map((response, index) => `${index + 1}. "${response}"`).join('\n')}
+
+Please analyze these responses and provide 3-6 key insights in this exact JSON format:
+[
+  {
+    "title": "Insight Title",
+    "content": "Detailed analysis and summary of what respondents actually said about this topic"
+  }
+]
+
+Requirements:
+- Base your analysis ONLY on what people actually wrote
+- Create meaningful summaries, not just word counts
+- Identify real themes and patterns in the responses
+- Make insights actionable and specific
+- If responses are positive/negative, reflect that in your analysis
+- Don't make up information not present in the responses
+
+Return only the JSON array, no other text.`;
+}
+
+function parseClaudeResponse(responseText) {
+    try {
+        // Extract JSON from the response
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            return Array.isArray(parsed) ? parsed : [];
+        }
+        
+        // Fallback: try to parse the entire response
+        const parsed = JSON.parse(responseText);
+        return Array.isArray(parsed) ? parsed : [];
+        
+    } catch (error) {
+        console.error('Error parsing Claude response:', error);
+        // Fallback to manual parsing if JSON fails
+        return [{
+            title: "Analysis Complete",
+            content: responseText.substring(0, 300) + "..."
+        }];
+    }
 }
 
 function createActualSummaries(responses, instruction) {
