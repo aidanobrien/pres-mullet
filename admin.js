@@ -102,14 +102,14 @@ function initializeDefaultPages() {
     const pagesContainer = document.getElementById('pagesContainer');
     pagesContainer.innerHTML = '';
     
-    // Initialize pages array
+    // Initialize pages array - start empty, let admin build structure
     window.presentationPages = [];
     
-    // Add a default overview page
+    // Add one empty page to get started
     addPageCard({
-        title: 'Survey Overview',
-        type: 'overview',
-        instruction: 'Show response count and key statistics'
+        title: 'Page 1',
+        type: 'feedback',
+        instruction: 'Tell me what to extract from the CSV...'
     });
 }
 
@@ -480,77 +480,422 @@ function generateFeedbackPageFromInstruction(title, instruction, data) {
     const content = [];
     const instructionLower = instruction.toLowerCase();
     
-    // Extract keywords from instruction
-    const keywords = extractKeywordsFromInstruction(instruction);
-    
     // Find relevant columns based on instruction
     const relevantColumns = findRelevantColumnsFromInstruction(data.headers, instruction);
     
-    // Extract text responses
+    // Extract and analyze all relevant responses
+    const allResponses = [];
     relevantColumns.forEach(column => {
         const responses = data.data
             .map(row => row[column])
             .filter(val => val && val.trim() && val.length > 10);
-        
-        // Filter responses that match keywords if any specified
-        const filteredResponses = keywords.length > 0 
-            ? responses.filter(response => 
-                keywords.some(keyword => 
-                    response.toLowerCase().includes(keyword.toLowerCase())
-                )
-            )
-            : responses;
-        
-        const responsesToUse = filteredResponses.length > 0 ? filteredResponses : responses;
-        
-        // Take up to 6 responses
-        responsesToUse.slice(0, 6).forEach((response, index) => {
-            if (content.length < 6) {
-                content.push({
-                    title: `Response ${content.length + 1}`,
-                    content: truncateText(response, 200)
-                });
-            }
-        });
+        allResponses.push(...responses);
     });
+    
+    if (allResponses.length === 0) {
+        return {
+            title: title,
+            type: "feedback",
+            content: [{
+                title: "No Data Found",
+                content: "No relevant responses found for the specified criteria."
+            }]
+        };
+    }
+    
+    // Analyze and summarize the responses
+    const analysis = analyzeTextResponses(allResponses, instruction);
     
     return {
         title: title,
         type: "feedback",
-        content: content
+        content: analysis
     };
+}
+
+function analyzeTextResponses(responses, instruction) {
+    const analysis = [];
+    
+    // 1. Extract common themes
+    const themes = extractThemesFromResponses(responses);
+    
+    // 2. Categorize by sentiment if instruction suggests it
+    const instructionLower = instruction.toLowerCase();
+    const needsSentiment = instructionLower.includes('positive') || 
+                          instructionLower.includes('negative') || 
+                          instructionLower.includes('good') || 
+                          instructionLower.includes('bad') ||
+                          instructionLower.includes('problem');
+    
+    if (needsSentiment) {
+        const sentimentAnalysis = categorizeBySentiment(responses);
+        
+        if (instructionLower.includes('positive') || instructionLower.includes('good')) {
+            sentimentAnalysis.positive.forEach((item, index) => {
+                if (analysis.length < 6) {
+                    analysis.push({
+                        title: `Positive Theme ${index + 1}`,
+                        content: item.summary,
+                        count: item.count
+                    });
+                }
+            });
+        }
+        
+        if (instructionLower.includes('negative') || instructionLower.includes('problem')) {
+            sentimentAnalysis.negative.forEach((item, index) => {
+                if (analysis.length < 6) {
+                    analysis.push({
+                        title: `Issue ${index + 1}`,
+                        content: item.summary,
+                        count: item.count
+                    });
+                }
+            });
+        }
+    } else {
+        // General thematic analysis
+        themes.slice(0, 6).forEach((theme, index) => {
+            analysis.push({
+                title: theme.title,
+                content: createThemeSummary(theme, responses),
+                count: theme.count
+            });
+        });
+    }
+    
+    // If no themes found, create frequency-based summaries
+    if (analysis.length === 0) {
+        const summaries = createFrequencySummaries(responses);
+        analysis.push(...summaries.slice(0, 6));
+    }
+    
+    return analysis;
+}
+
+function categorizeBySentiment(responses) {
+    const positive = [];
+    const negative = [];
+    const neutral = [];
+    
+    // Simple sentiment detection based on keywords
+    const positiveWords = ['good', 'great', 'excellent', 'love', 'like', 'amazing', 'helpful', 'easy', 'clear', 'effective', 'satisfied', 'happy', 'impressed'];
+    const negativeWords = ['bad', 'poor', 'terrible', 'hate', 'dislike', 'difficult', 'hard', 'confusing', 'frustrating', 'problem', 'issue', 'slow', 'complicated'];
+    
+    responses.forEach(response => {
+        const responseLower = response.toLowerCase();
+        const positiveScore = positiveWords.reduce((score, word) => 
+            score + (responseLower.includes(word) ? 1 : 0), 0);
+        const negativeScore = negativeWords.reduce((score, word) => 
+            score + (responseLower.includes(word) ? 1 : 0), 0);
+        
+        if (positiveScore > negativeScore) {
+            positive.push(response);
+        } else if (negativeScore > positiveScore) {
+            negative.push(response);
+        } else {
+            neutral.push(response);
+        }
+    });
+    
+    return {
+        positive: createSummariesFromGroup(positive, 'positive'),
+        negative: createSummariesFromGroup(negative, 'negative'),
+        neutral: createSummariesFromGroup(neutral, 'neutral')
+    };
+}
+
+function createSummariesFromGroup(responses, type) {
+    if (responses.length === 0) return [];
+    
+    // Group similar responses
+    const themes = extractThemesFromResponses(responses);
+    
+    return themes.map(theme => ({
+        summary: `${theme.count} people mentioned ${theme.title.toLowerCase()}: "${theme.examples[0].substring(0, 100)}..."`,
+        count: theme.count,
+        type: type
+    }));
+}
+
+function createThemeSummary(theme, allResponses) {
+    // Find responses related to this theme
+    const relatedResponses = allResponses.filter(response => 
+        response.toLowerCase().includes(theme.title.toLowerCase())
+    );
+    
+    if (relatedResponses.length === 0) return `${theme.count} mentions of ${theme.title}`;
+    
+    // Create a smart summary
+    const commonPatterns = findCommonPatterns(relatedResponses, theme.title);
+    
+    if (commonPatterns.length > 0) {
+        return `${theme.count} people mentioned ${theme.title}: ${commonPatterns[0]}`;
+    }
+    
+    // Fallback to first example with context
+    const firstExample = relatedResponses[0];
+    const contextStart = Math.max(0, firstExample.toLowerCase().indexOf(theme.title.toLowerCase()) - 20);
+    const contextEnd = Math.min(firstExample.length, contextStart + 120);
+    
+    return `${theme.count} mentions: "${firstExample.substring(contextStart, contextEnd)}"`;
+}
+
+function findCommonPatterns(responses, keyword) {
+    // Look for common phrases that appear with the keyword
+    const patterns = [];
+    const keywordLower = keyword.toLowerCase();
+    
+    responses.forEach(response => {
+        const responseLower = response.toLowerCase();
+        const keywordIndex = responseLower.indexOf(keywordLower);
+        
+        if (keywordIndex !== -1) {
+            // Extract context around the keyword
+            const start = Math.max(0, keywordIndex - 30);
+            const end = Math.min(response.length, keywordIndex + keyword.length + 50);
+            const context = response.substring(start, end).trim();
+            
+            // Look for common sentence structures
+            const sentences = context.split(/[.!?]+/);
+            sentences.forEach(sentence => {
+                if (sentence.includes(keyword) && sentence.trim().length > 20) {
+                    patterns.push(sentence.trim());
+                }
+            });
+        }
+    });
+    
+    // Find most common pattern
+    const patternFreq = {};
+    patterns.forEach(pattern => {
+        // Normalize pattern for comparison
+        const normalized = pattern.toLowerCase().replace(/[^\w\s]/g, ' ').trim();
+        patternFreq[normalized] = (patternFreq[normalized] || 0) + 1;
+    });
+    
+    const sortedPatterns = Object.entries(patternFreq)
+        .sort(([,a], [,b]) => b - a)
+        .map(([pattern]) => pattern);
+    
+    return sortedPatterns.slice(0, 3);
+}
+
+function createFrequencySummaries(responses) {
+    // Create summaries based on response frequency and content
+    const summaries = [];
+    
+    // Group responses by similarity (very basic clustering)
+    const clusters = clusterSimilarResponses(responses);
+    
+    clusters.forEach((cluster, index) => {
+        if (cluster.responses.length >= 2) { // Only include if mentioned by multiple people
+            const representative = cluster.responses[0];
+            summaries.push({
+                title: `Common Response ${index + 1}`,
+                content: `${cluster.responses.length} people mentioned: "${representative.substring(0, 150)}${representative.length > 150 ? '...' : ''}"`,
+                count: cluster.responses.length
+            });
+        }
+    });
+    
+    return summaries;
+}
+
+function clusterSimilarResponses(responses) {
+    // Very simple clustering based on common words
+    const clusters = [];
+    const used = new Set();
+    
+    responses.forEach((response, index) => {
+        if (used.has(index)) return;
+        
+        const cluster = { responses: [response], indices: [index] };
+        const responseWords = response.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+        
+        // Find similar responses
+        responses.forEach((otherResponse, otherIndex) => {
+            if (otherIndex <= index || used.has(otherIndex)) return;
+            
+            const otherWords = otherResponse.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+            const commonWords = responseWords.filter(w => otherWords.includes(w));
+            
+            // If they share significant words, cluster them
+            if (commonWords.length >= Math.min(3, Math.min(responseWords.length, otherWords.length) * 0.3)) {
+                cluster.responses.push(otherResponse);
+                cluster.indices.push(otherIndex);
+                used.add(otherIndex);
+            }
+        });
+        
+        used.add(index);
+        clusters.push(cluster);
+    });
+    
+    return clusters.sort((a, b) => b.responses.length - a.responses.length);
 }
 
 function generateInsightsPageFromInstruction(title, instruction, data) {
     const content = [];
     
-    // Find text columns for analysis
-    const textColumns = data.headers.filter(header => {
-        const sampleData = data.data.slice(0, 3).map(row => row[header]).filter(val => val);
-        return sampleData.some(val => val && val.length > 50);
-    });
+    // Find relevant columns based on instruction
+    const relevantColumns = findRelevantColumnsFromInstruction(data.headers, instruction);
     
     // Extract all text responses
-    const allResponses = textColumns.flatMap(column =>
-        data.data.map(row => row[column]).filter(val => val && val.trim())
-    );
-    
-    // Extract themes/keywords
-    const themes = extractThemesFromResponses(allResponses);
-    
-    themes.slice(0, 6).forEach(theme => {
-        content.push({
-            title: theme.title,
-            content: `${theme.count} mentions: ${theme.examples[0]}`,
-            count: theme.count
-        });
+    const allResponses = [];
+    relevantColumns.forEach(column => {
+        const responses = data.data
+            .map(row => row[column])
+            .filter(val => val && val.trim());
+        allResponses.push(...responses);
     });
+    
+    if (allResponses.length === 0) {
+        return {
+            title: title,
+            type: "insights",
+            content: [{
+                title: "No Data Found",
+                content: "No relevant responses found for analysis."
+            }]
+        };
+    }
+    
+    // Advanced analysis for insights
+    const insights = generateInsights(allResponses, instruction);
     
     return {
         title: title,
         type: "insights",
-        content: content
+        content: insights
     };
+}
+
+function generateInsights(responses, instruction) {
+    const insights = [];
+    
+    // 1. Word frequency analysis
+    const wordFrequency = analyzeWordFrequency(responses);
+    
+    // 2. Sentiment distribution
+    const sentimentDist = analyzeSentimentDistribution(responses);
+    
+    // 3. Response length patterns
+    const lengthPatterns = analyzeResponseLengths(responses);
+    
+    // 4. Key themes with context
+    const themes = extractDetailedThemes(responses);
+    
+    // Generate insight summaries
+    if (themes.length > 0) {
+        insights.push({
+            title: "Top Theme",
+            content: `${themes[0].title} was mentioned by ${themes[0].percentage}% of respondents (${themes[0].count}/${responses.length})`,
+            count: themes[0].count
+        });
+    }
+    
+    if (sentimentDist.positive > sentimentDist.negative) {
+        insights.push({
+            title: "Overall Sentiment",
+            content: `${sentimentDist.positive}% positive responses vs ${sentimentDist.negative}% negative, indicating overall satisfaction`,
+            count: Math.round(responses.length * sentimentDist.positive / 100)
+        });
+    } else if (sentimentDist.negative > sentimentDist.positive) {
+        insights.push({
+            title: "Overall Sentiment",
+            content: `${sentimentDist.negative}% negative responses vs ${sentimentDist.positive}% positive, indicating areas needing attention`,
+            count: Math.round(responses.length * sentimentDist.negative / 100)
+        });
+    }
+    
+    // Add response engagement insight
+    if (lengthPatterns.detailed > 50) {
+        insights.push({
+            title: "Response Engagement",
+            content: `${lengthPatterns.detailed}% provided detailed responses (50+ words), showing high engagement`,
+            count: Math.round(responses.length * lengthPatterns.detailed / 100)
+        });
+    }
+    
+    // Add top keywords insight
+    if (wordFrequency.length > 0) {
+        const topWords = wordFrequency.slice(0, 3).map(w => w.word).join(', ');
+        insights.push({
+            title: "Most Mentioned",
+            content: `Key topics: ${topWords}`,
+            count: wordFrequency[0].count
+        });
+    }
+    
+    return insights.slice(0, 6);
+}
+
+function analyzeWordFrequency(responses) {
+    const wordCount = {};
+    
+    responses.forEach(response => {
+        const words = response.toLowerCase()
+            .replace(/[^\w\s]/g, ' ')
+            .split(/\s+/)
+            .filter(word => word.length > 3 && !isStopWord(word));
+        
+        words.forEach(word => {
+            wordCount[word] = (wordCount[word] || 0) + 1;
+        });
+    });
+    
+    return Object.entries(wordCount)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10)
+        .map(([word, count]) => ({ word: capitalizeFirst(word), count }));
+}
+
+function analyzeSentimentDistribution(responses) {
+    const positiveWords = ['good', 'great', 'excellent', 'love', 'like', 'amazing', 'helpful', 'easy', 'clear', 'effective', 'satisfied', 'happy'];
+    const negativeWords = ['bad', 'poor', 'terrible', 'hate', 'dislike', 'difficult', 'hard', 'confusing', 'frustrating', 'problem', 'issue'];
+    
+    let positive = 0, negative = 0, neutral = 0;
+    
+    responses.forEach(response => {
+        const lower = response.toLowerCase();
+        const posScore = positiveWords.reduce((score, word) => score + (lower.includes(word) ? 1 : 0), 0);
+        const negScore = negativeWords.reduce((score, word) => score + (lower.includes(word) ? 1 : 0), 0);
+        
+        if (posScore > negScore) positive++;
+        else if (negScore > posScore) negative++;
+        else neutral++;
+    });
+    
+    const total = responses.length;
+    return {
+        positive: Math.round((positive / total) * 100),
+        negative: Math.round((negative / total) * 100),
+        neutral: Math.round((neutral / total) * 100)
+    };
+}
+
+function analyzeResponseLengths(responses) {
+    const lengths = responses.map(r => r.split(/\s+/).length);
+    const detailed = lengths.filter(l => l >= 50).length;
+    const brief = lengths.filter(l => l < 10).length;
+    const medium = lengths.length - detailed - brief;
+    
+    const total = responses.length;
+    return {
+        detailed: Math.round((detailed / total) * 100),
+        medium: Math.round((medium / total) * 100),
+        brief: Math.round((brief / total) * 100)
+    };
+}
+
+function extractDetailedThemes(responses) {
+    const themes = extractThemesFromResponses(responses);
+    
+    return themes.map(theme => ({
+        ...theme,
+        percentage: Math.round((theme.count / responses.length) * 100)
+    }));
 }
 
 function generateCustomPageFromInstruction(title, instruction, data) {
