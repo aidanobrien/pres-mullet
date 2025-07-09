@@ -40,6 +40,11 @@ function updatePresentationContent(data) {
     document.getElementById('responseCount').textContent = data.responseCount;
     document.getElementById('collaborationScore').textContent = data.collaborationScore;
     
+    // Update survey purpose if provided
+    if (data.purpose) {
+        document.getElementById('surveyPurpose').textContent = data.purpose;
+    }
+    
     // Update cards
     updateCardGrid('positivesGrid', data.positives, 'feedback-card');
     updateCardGrid('improvementsGrid', data.improvements, 'feedback-card improvement');

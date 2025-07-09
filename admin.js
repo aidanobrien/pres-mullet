@@ -17,6 +17,9 @@ function handleFileUpload(event) {
         try {
             const csvText = e.target.result;
             surveyData = parseCSVData(csvText);
+            
+            // Show customization section
+            document.getElementById('customizationSection').style.display = 'block';
             document.getElementById('generateBtn').disabled = false;
             
             // Update upload area to show file loaded
@@ -26,6 +29,13 @@ function handleFileUpload(event) {
                 <div class="upload-text">${file.name}</div>
                 <div class="upload-subtext">File loaded successfully (${surveyData.data.length} responses)</div>
             `;
+            
+            // Scroll to customization section
+            document.getElementById('customizationSection').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+            
         } catch (error) {
             alert('Error reading CSV file. Please check the format and try again.');
             console.error('CSV parsing error:', error);
@@ -104,17 +114,166 @@ function generatePresentation() {
 function analyzeData(data) {
     const responseCount = data.data.length;
     
-    // AI-powered analysis of CSV data
+    // Get custom inputs
+    const customInputs = getCustomInputs();
+    
+    // Smart analysis using both CSV data and custom inputs
     const analysis = {
         responseCount: responseCount,
         collaborationScore: calculateCollaborationScore(data),
-        positives: analyzePositiveFeedback(data),
-        improvements: analyzeImprovements(data),
-        immediate: generateSmartImmediateActions(data),
-        longterm: generateSmartLongtermActions(data)
+        positives: extractCustomFeedback(data, customInputs.positives, 'positive'),
+        improvements: extractCustomFeedback(data, customInputs.improvements, 'improvement'),
+        immediate: parseCustomActions(customInputs.immediate),
+        longterm: parseCustomActions(customInputs.longterm),
+        purpose: customInputs.purpose
     };
     
     return analysis;
+}
+
+function getCustomInputs() {
+    return {
+        positives: document.getElementById('positivesInput').value || '',
+        improvements: document.getElementById('improvementsInput').value || '',
+        immediate: document.getElementById('immediateInput').value || '',
+        longterm: document.getElementById('longtermInput').value || '',
+        purpose: document.getElementById('purposeInput').value || 'This survey was conducted to gather feedback from the team.'
+    };
+}
+
+function extractCustomFeedback(data, keywords, type) {
+    const keywordList = keywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
+    
+    if (keywordList.length === 0) {
+        return getDefaultFeedback(type);
+    }
+    
+    // Find relevant columns based on keywords and typical column names
+    const relevantColumns = findRelevantColumns(data.headers, keywordList, type);
+    
+    const feedback = [];
+    const uniqueResponses = new Set();
+    
+    data.data.forEach(row => {
+        relevantColumns.forEach(col => {
+            const value = row[col];
+            if (value && value.trim() && value.trim().length > 10) {
+                const cleanedValue = value.trim();
+                if (!uniqueResponses.has(cleanedValue.toLowerCase())) {
+                    uniqueResponses.add(cleanedValue.toLowerCase());
+                    
+                    // Check if response contains any of our keywords
+                    const containsKeyword = keywordList.some(keyword => 
+                        cleanedValue.toLowerCase().includes(keyword)
+                    );
+                    
+                    if (containsKeyword || relevantColumns.length === 1) {
+                        const sentences = cleanedValue.split(/[.!?]+/).filter(s => s.trim().length > 10);
+                        
+                        if (sentences.length > 0) {
+                            sentences.forEach(sentence => {
+                                const cleaned = sentence.trim();
+                                if (cleaned.length > 15) {
+                                    feedback.push({
+                                        title: extractTitleFromKeywords(cleaned, keywordList),
+                                        content: cleaned
+                                    });
+                                }
+                            });
+                        } else {
+                            feedback.push({
+                                title: extractTitleFromKeywords(cleanedValue, keywordList),
+                                content: cleanedValue
+                            });
+                        }
+                    }
+                }
+            }
+        });
+    });
+    
+    // If no feedback found, create generic items based on keywords
+    if (feedback.length === 0) {
+        return keywordList.slice(0, 6).map(keyword => ({
+            title: capitalizeFirst(keyword),
+            content: `Team feedback highlighted ${keyword} as an important area to focus on.`
+        }));
+    }
+    
+    return feedback.slice(0, 6); // Limit to 6 items
+}
+
+function findRelevantColumns(headers, keywords, type) {
+    const typeKeywords = {
+        positive: ['well', 'good', 'strength', 'positive', 'working', 'great', 'excellent'],
+        improvement: ['improve', 'better', 'issue', 'problem', 'challenge', 'difficult', 'change']
+    };
+    
+    const allKeywords = [...keywords, ...typeKeywords[type]];
+    
+    return headers.filter(header => {
+        const headerLower = header.toLowerCase();
+        return allKeywords.some(keyword => headerLower.includes(keyword));
+    });
+}
+
+function extractTitleFromKeywords(text, keywords) {
+    // Try to find a keyword in the text to use as title
+    const foundKeyword = keywords.find(keyword => 
+        text.toLowerCase().includes(keyword)
+    );
+    
+    if (foundKeyword) {
+        return capitalizeFirst(foundKeyword);
+    }
+    
+    // Fallback to extracting title from text
+    const words = text.split(' ').slice(0, 3);
+    let title = words.join(' ');
+    title = title.replace(/[^\w\s]/g, '').trim();
+    return capitalizeFirst(title) || "Feedback Point";
+}
+
+function parseCustomActions(actionsText) {
+    if (!actionsText || !actionsText.trim()) {
+        return [];
+    }
+    
+    return actionsText.split(',')
+        .map(action => action.trim())
+        .filter(action => action.length > 0)
+        .slice(0, 6) // Limit to 6 actions
+        .map(action => ({
+            title: extractActionTitle(action),
+            content: action
+        }));
+}
+
+function extractActionTitle(action) {
+    // Extract first few words as title
+    const words = action.split(' ').slice(0, 3);
+    return words.join(' ').replace(/[^\w\s]/g, '').trim() || 'Action Item';
+}
+
+function getDefaultFeedback(type) {
+    const defaults = {
+        positive: [
+            { title: "Team Collaboration", content: "Strong working relationships and communication" },
+            { title: "Quality Work", content: "Consistent delivery of high-quality outputs" },
+            { title: "Responsive Support", content: "Quick to respond and provide assistance when needed" }
+        ],
+        improvement: [
+            { title: "Communication", content: "Improve regular updates and status sharing" },
+            { title: "Documentation", content: "Enhance clarity and accessibility of documentation" },
+            { title: "Process Efficiency", content: "Streamline workflows and reduce bottlenecks" }
+        ]
+    };
+    
+    return defaults[type] || [];
+}
+
+function capitalizeFirst(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 function calculateCollaborationScore(data) {
@@ -147,396 +306,95 @@ function calculateCollaborationScore(data) {
     return Math.round((positiveCount / totalCount) * 100) + "%";
 }
 
-function analyzePositiveFeedback(data) {
-    // Collect all positive feedback
-    const allPositiveFeedback = collectFeedbackByType(data, ['well', 'good', 'strength', 'positive', 'great', 'excellent']);
+function extractPositiveFeedback(data) {
+    const positiveColumns = data.headers.filter(header => 
+        header.toLowerCase().includes('well') || 
+        header.toLowerCase().includes('good') ||
+        header.toLowerCase().includes('strength') ||
+        header.toLowerCase().includes('positive')
+    );
     
-    if (allPositiveFeedback.length === 0) {
-        return getDefaultPositives();
-    }
-    
-    // AI-powered theme analysis
-    const themes = analyzeThemes(allPositiveFeedback);
-    const synthesizedFeedback = [];
-    
-    // Group responses by themes and create summaries
-    Object.entries(themes).forEach(([theme, responses]) => {
-        if (responses.length > 0) {
-            synthesizedFeedback.push({
-                title: formatThemeTitle(theme),
-                content: synthesizeResponses(responses, theme)
-            });
-        }
-    });
-    
-    return synthesizedFeedback.slice(0, 6);
-}
-
-function analyzeImprovements(data) {
-    // Collect improvement-related feedback
-    const allImprovementFeedback = collectFeedbackByType(data, ['improve', 'better', 'issue', 'problem', 'challenge', 'difficult']);
-    
-    if (allImprovementFeedback.length === 0) {
-        return getDefaultImprovements();
-    }
-    
-    // AI-powered improvement analysis
-    const improvementThemes = analyzeImprovementThemes(allImprovementFeedback);
-    const synthesizedImprovements = [];
-    
-    Object.entries(improvementThemes).forEach(([theme, responses]) => {
-        if (responses.length > 0) {
-            synthesizedImprovements.push({
-                title: formatThemeTitle(theme),
-                content: synthesizeImprovementResponses(responses, theme)
-            });
-        }
-    });
-    
-    return synthesizedImprovements.slice(0, 6);
-}
-
-function collectFeedbackByType(data, keywords) {
     const feedback = [];
+    const responses = new Set();
     
-    data.headers.forEach(header => {
-        const headerLower = header.toLowerCase();
-        const isRelevantColumn = keywords.some(keyword => headerLower.includes(keyword));
-        
-        if (isRelevantColumn) {
-            data.data.forEach(row => {
-                const value = row[header];
-                if (value && value.trim() && value.trim().length > 10) {
-                    feedback.push({
-                        text: value.trim(),
-                        column: header,
-                        context: extractContext(value)
-                    });
-                }
-            });
-        }
-    });
-    
-    return feedback;
-}
-
-function analyzeThemes(feedbackArray) {
-    const themes = {
-        'Communication & Collaboration': [],
-        'Design Quality & Process': [],
-        'Technical Integration': [],
-        'Responsiveness & Support': [],
-        'Documentation & Clarity': [],
-        'Innovation & Creativity': []
-    };
-    
-    feedbackArray.forEach(feedback => {
-        const text = feedback.text.toLowerCase();
-        
-        // AI-like keyword matching for themes
-        if (text.match(/\b(communicat|collaborat|work.{0,10}together|team|discuss|meet)\b/)) {
-            themes['Communication & Collaboration'].push(feedback);
-        } else if (text.match(/\b(design|visual|aesthetic|ui|ux|user.{0,10}experience|interface)\b/)) {
-            themes['Design Quality & Process'].push(feedback);
-        } else if (text.match(/\b(technical|code|implement|develop|engineer|integration)\b/)) {
-            themes['Technical Integration'].push(feedback);
-        } else if (text.match(/\b(quick|fast|responsive|available|support|help)\b/)) {
-            themes['Responsiveness & Support'].push(feedback);
-        } else if (text.match(/\b(document|figma|template|guid|instruct|clear|underst)\b/)) {
-            themes['Documentation & Clarity'].push(feedback);
-        } else if (text.match(/\b(creative|innovative|idea|solution|approach|think)\b/)) {
-            themes['Innovation & Creativity'].push(feedback);
-        } else {
-            // Default to most relevant theme based on general positive indicators
-            themes['Design Quality & Process'].push(feedback);
-        }
-    });
-    
-    return themes;
-}
-
-function analyzeImprovementThemes(feedbackArray) {
-    const themes = {
-        'Communication & Updates': [],
-        'Process & Workflow': [],
-        'Documentation & Clarity': [],
-        'Resource & Capacity': [],
-        'Technical Implementation': [],
-        'Strategic Alignment': []
-    };
-    
-    feedbackArray.forEach(feedback => {
-        const text = feedback.text.toLowerCase();
-        
-        if (text.match(/\b(communicat|update|inform|share|tell|notify|aware)\b/)) {
-            themes['Communication & Updates'].push(feedback);
-        } else if (text.match(/\b(process|workflow|method|approach|way|how)\b/)) {
-            themes['Process & Workflow'].push(feedback);
-        } else if (text.match(/\b(document|clear|understand|confus|complex|simple)\b/)) {
-            themes['Documentation & Clarity'].push(feedback);
-        } else if (text.match(/\b(time|capacity|resource|bandwidth|workload|busy)\b/)) {
-            themes['Resource & Capacity'].push(feedback);
-        } else if (text.match(/\b(technical|implement|code|develop|feature|tool)\b/)) {
-            themes['Technical Implementation'].push(feedback);
-        } else if (text.match(/\b(strategic|goal|objective|direction|focus|priority)\b/)) {
-            themes['Strategic Alignment'].push(feedback);
-        } else {
-            themes['Communication & Updates'].push(feedback);
-        }
-    });
-    
-    return themes;
-}
-
-function synthesizeResponses(responses, theme) {
-    if (responses.length === 1) {
-        return cleanAndSummarize(responses[0].text);
-    }
-    
-    // Create a synthesized summary based on multiple responses
-    const keyPoints = extractKeyPoints(responses);
-    const commonPatterns = findCommonPatterns(responses);
-    
-    if (commonPatterns.length > 0) {
-        return `Team consistently highlights ${commonPatterns.join(' and ')}. ${keyPoints.slice(0, 2).join(' ')}`;
-    } else {
-        return `Multiple team members noted: ${keyPoints.slice(0, 3).join(', ')}.`;
-    }
-}
-
-function synthesizeImprovementResponses(responses, theme) {
-    if (responses.length === 1) {
-        return cleanAndSummarize(responses[0].text);
-    }
-    
-    const keyIssues = extractImprovementPoints(responses);
-    const frequency = responses.length;
-    
-    let synthesis = '';
-    if (frequency > 1) {
-        synthesis = `${frequency} team members identified this area. `;
-    }
-    
-    synthesis += `Key suggestions include: ${keyIssues.slice(0, 2).join(' and ')}.`;
-    
-    return synthesis;
-}
-
-function extractKeyPoints(responses) {
-    const points = [];
-    
-    responses.forEach(response => {
-        const text = response.text;
-        const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 10);
-        
-        sentences.forEach(sentence => {
-            if (sentence.length > 15 && sentence.length < 100) {
-                points.push(cleanAndSummarize(sentence));
+    data.data.forEach(row => {
+        positiveColumns.forEach(col => {
+            const value = row[col];
+            if (value && value.trim() && value.trim().length > 10 && !responses.has(value.trim())) {
+                responses.add(value.trim());
+                
+                // Extract key themes
+                const sentences = value.split(/[.!?]+/).filter(s => s.trim().length > 5);
+                sentences.forEach(sentence => {
+                    const cleaned = sentence.trim();
+                    if (cleaned.length > 20) {
+                        feedback.push({
+                            title: extractTitle(cleaned),
+                            content: cleaned
+                        });
+                    }
+                });
             }
         });
     });
     
-    return [...new Set(points)]; // Remove duplicates
+    // If no specific positive feedback found, use defaults
+    if (feedback.length === 0) {
+        return [
+            { title: "Team Collaboration", content: "Strong working relationships and communication" },
+            { title: "Quality Work", content: "Consistent delivery of high-quality outputs" },
+            { title: "Responsive Support", content: "Quick to respond and provide assistance when needed" }
+        ];
+    }
+    
+    return feedback.slice(0, 6); // Limit to 6 items
 }
 
-function extractImprovementPoints(responses) {
-    const points = [];
+function extractImprovements(data) {
+    const improvementColumns = data.headers.filter(header => 
+        header.toLowerCase().includes('improve') || 
+        header.toLowerCase().includes('better') ||
+        header.toLowerCase().includes('issue') ||
+        header.toLowerCase().includes('problem')
+    );
     
-    responses.forEach(response => {
-        const text = response.text;
-        // Look for actionable suggestions
-        const actionablePattern = /\b(should|could|need|want|would like|suggest|recommend|improve|better|more|less)\b.{10,80}/gi;
-        const matches = text.match(actionablePattern) || [];
-        
-        matches.forEach(match => {
-            const cleaned = cleanAndSummarize(match);
-            if (cleaned.length > 20) {
-                points.push(cleaned);
+    const feedback = [];
+    const responses = new Set();
+    
+    data.data.forEach(row => {
+        improvementColumns.forEach(col => {
+            const value = row[col];
+            if (value && value.trim() && value.trim().length > 10 && !responses.has(value.trim())) {
+                responses.add(value.trim());
+                
+                const sentences = value.split(/[.!?]+/).filter(s => s.trim().length > 5);
+                sentences.forEach(sentence => {
+                    const cleaned = sentence.trim();
+                    if (cleaned.length > 20) {
+                        feedback.push({
+                            title: extractTitle(cleaned),
+                            content: cleaned
+                        });
+                    }
+                });
             }
         });
-        
-        // If no actionable items found, use general text
-        if (matches.length === 0) {
-            const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 15 && s.length < 80);
-            if (sentences.length > 0) {
-                points.push(cleanAndSummarize(sentences[0]));
-            }
-        }
     });
     
-    return [...new Set(points)];
-}
-
-function findCommonPatterns(responses) {
-    const patterns = [];
-    const texts = responses.map(r => r.text.toLowerCase());
-    
-    // Look for repeated key phrases
-    const keyPhrases = ['communication', 'collaboration', 'documentation', 'visual', 'clear', 'helpful', 'responsive', 'quality'];
-    
-    keyPhrases.forEach(phrase => {
-        const count = texts.filter(text => text.includes(phrase)).length;
-        if (count > 1) {
-            patterns.push(phrase);
-        }
-    });
-    
-    return patterns;
-}
-
-function cleanAndSummarize(text) {
-    // Clean up text and create a more readable summary
-    let cleaned = text.trim();
-    
-    // Remove common survey artifacts
-    cleaned = cleaned.replace(/^(I think|I feel|I believe|In my opinion),?\s*/i, '');
-    cleaned = cleaned.replace(/\s+/g, ' ');
-    
-    // Ensure proper capitalization
-    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-    
-    // Ensure it ends properly
-    if (!cleaned.match(/[.!?]$/)) {
-        cleaned += '.';
+    // If no specific improvement feedback found, use defaults
+    if (feedback.length === 0) {
+        return [
+            { title: "Communication", content: "Improve regular updates and status sharing" },
+            { title: "Documentation", content: "Enhance clarity and accessibility of documentation" },
+            { title: "Process Efficiency", content: "Streamline workflows and reduce bottlenecks" }
+        ];
     }
     
-    return cleaned;
+    return feedback.slice(0, 6);
 }
 
-function extractContext(text) {
-    // Extract contextual information for better analysis
-    const context = {
-        sentiment: analyzeSentiment(text),
-        urgency: analyzeUrgency(text),
-        specificity: analyzeSpecificity(text)
-    };
-    
-    return context;
-}
-
-function analyzeSentiment(text) {
-    const positiveWords = ['good', 'great', 'excellent', 'amazing', 'helpful', 'clear', 'easy', 'effective'];
-    const negativeWords = ['difficult', 'confusing', 'problem', 'issue', 'hard', 'unclear', 'frustrating'];
-    
-    const lowerText = text.toLowerCase();
-    const positiveCount = positiveWords.filter(word => lowerText.includes(word)).length;
-    const negativeCount = negativeWords.filter(word => lowerText.includes(word)).length;
-    
-    if (positiveCount > negativeCount) return 'positive';
-    if (negativeCount > positiveCount) return 'negative';
-    return 'neutral';
-}
-
-function analyzeUrgency(text) {
-    const urgentWords = ['urgent', 'immediate', 'asap', 'critical', 'important', 'priority'];
-    const lowerText = text.toLowerCase();
-    
-    return urgentWords.some(word => lowerText.includes(word)) ? 'high' : 'normal';
-}
-
-function analyzeSpecificity(text) {
-    // Check if feedback includes specific examples or is general
-    const specificIndicators = ['example', 'instance', 'specifically', 'particular', 'case'];
-    const lowerText = text.toLowerCase();
-    
-    return specificIndicators.some(indicator => lowerText.includes(indicator)) ? 'specific' : 'general';
-}
-
-function generateSmartImmediateActions(data) {
-    // Generate contextual immediate actions based on the actual feedback
-    const improvementFeedback = collectFeedbackByType(data, ['improve', 'better', 'issue', 'problem']);
-    const actions = [];
-    
-    // Analyze what came up most frequently
-    const themes = analyzeImprovementThemes(improvementFeedback);
-    
-    Object.entries(themes).forEach(([theme, responses]) => {
-        if (responses.length > 0) {
-            const action = generateActionFromTheme(theme, responses, 'immediate');
-            if (action) actions.push(action);
-        }
-    });
-    
-    // Ensure we have at least 3 actions
-    while (actions.length < 3) {
-        actions.push(...getDefaultImmediateActions().slice(actions.length));
-    }
-    
-    return actions.slice(0, 3);
-}
-
-function generateSmartLongtermActions(data) {
-    const improvementFeedback = collectFeedbackByType(data, ['improve', 'better', 'strategic', 'long']);
-    const actions = [];
-    
-    const themes = analyzeImprovementThemes(improvementFeedback);
-    
-    Object.entries(themes).forEach(([theme, responses]) => {
-        if (responses.length > 0) {
-            const action = generateActionFromTheme(theme, responses, 'longterm');
-            if (action) actions.push(action);
-        }
-    });
-    
-    while (actions.length < 4) {
-        actions.push(...getDefaultLongtermActions().slice(actions.length));
-    }
-    
-    return actions.slice(0, 4);
-}
-
-function generateActionFromTheme(theme, responses, timeframe) {
-    const actionMap = {
-        'immediate': {
-            'Communication & Updates': {
-                title: 'Weekly Communication',
-                content: 'Establish weekly updates sharing current priorities and progress with the team'
-            },
-            'Documentation & Clarity': {
-                title: 'Documentation Audit',
-                content: 'Review and simplify existing documentation to improve clarity and accessibility'
-            },
-            'Process & Workflow': {
-                title: 'Process Quick Fix',
-                content: 'Identify and resolve the most immediate workflow bottlenecks'
-            }
-        },
-        'longterm': {
-            'Communication & Updates': {
-                title: 'Communication Framework',
-                content: 'Develop a structured approach for regular stakeholder communication and transparency'
-            },
-            'Strategic Alignment': {
-                title: 'Strategic Integration',
-                content: 'Create processes to better align daily work with broader strategic objectives'
-            },
-            'Technical Implementation': {
-                title: 'Technical Collaboration',
-                content: 'Establish improved workflows for design-engineering collaboration and handoffs'
-            }
-        }
-    };
-    
-    return actionMap[timeframe][theme] || null;
-}
-
-function getDefaultPositives() {
-    return [
-        { title: "Team Collaboration", content: "Strong working relationships and effective communication with team members" },
-        { title: "Quality Delivery", content: "Consistent delivery of high-quality work that meets expectations" },
-        { title: "Responsive Support", content: "Quick to respond and provide assistance when needed" }
-    ];
-}
-
-function getDefaultImprovements() {
-    return [
-        { title: "Communication Enhancement", content: "Opportunities to improve regular updates and status sharing" },
-        { title: "Process Optimization", content: "Potential to streamline workflows and reduce bottlenecks" },
-        { title: "Documentation Clarity", content: "Room to enhance clarity and accessibility of documentation" }
-    ];
-}
-
-function getDefaultImmediateActions() {
+function generateImmediateActions(data) {
+    // Generate immediate actions based on improvement areas
     return [
         { title: "Weekly Updates", content: "Start sending brief weekly progress updates to the team" },
         { title: "Quick Documentation Review", content: "Audit and simplify overly complex documentation" },
@@ -544,7 +402,8 @@ function getDefaultImmediateActions() {
     ];
 }
 
-function getDefaultLongtermActions() {
+function generateLongtermActions(data) {
+    // Generate long-term actions
     return [
         { title: "Process Framework", content: "Develop standardized processes for recurring activities" },
         { title: "Skill Development", content: "Identify and pursue relevant training opportunities" },
@@ -553,23 +412,16 @@ function getDefaultLongtermActions() {
     ];
 }
 
-function formatThemeTitle(theme) {
-    // Convert theme names to more readable titles
-    const titleMap = {
-        'Communication & Collaboration': 'Team Communication',
-        'Design Quality & Process': 'Design Excellence',
-        'Technical Integration': 'Technical Collaboration',
-        'Responsiveness & Support': 'Team Support',
-        'Documentation & Clarity': 'Clear Documentation',
-        'Innovation & Creativity': 'Creative Solutions',
-        'Communication & Updates': 'Information Sharing',
-        'Process & Workflow': 'Process Improvement',
-        'Resource & Capacity': 'Resource Management',
-        'Technical Implementation': 'Technical Execution',
-        'Strategic Alignment': 'Strategic Focus'
-    };
+function extractTitle(text) {
+    // Extract a concise title from longer text
+    const words = text.split(' ').slice(0, 4);
+    let title = words.join(' ');
     
-    return titleMap[theme] || theme;
+    // Clean up the title
+    title = title.replace(/[^\w\s]/g, '').trim();
+    title = title.charAt(0).toUpperCase() + title.slice(1);
+    
+    return title || "Feedback Point";
 }
 
 function compressData(data) {
@@ -617,6 +469,14 @@ function resetAdmin() {
     document.getElementById('csvFile').value = '';
     document.getElementById('generateBtn').disabled = true;
     document.getElementById('shareSection').style.display = 'none';
+    document.getElementById('customizationSection').style.display = 'none';
+    
+    // Reset custom inputs to defaults
+    document.getElementById('positivesInput').value = 'collaboration, communication, quality of work, responsiveness, technical skills';
+    document.getElementById('improvementsInput').value = 'documentation, meetings, processes, tools, training';
+    document.getElementById('immediateInput').value = 'Send weekly updates, Review documentation, Set up feedback channels';
+    document.getElementById('longtermInput').value = 'Develop training program, Implement new tools, Create process framework';
+    document.getElementById('purposeInput').value = 'This survey was conducted to gather feedback from the team on how effectively we\'re collaborating and contributing to our shared goals. The aim is to understand what\'s working well and identify areas where we can improve to better support our objectives.';
     
     // Reset upload area
     const uploadArea = document.getElementById('uploadArea');
@@ -630,7 +490,6 @@ function resetAdmin() {
     surveyData = null;
     presentationData = null;
 }
-
 
 // Drag and drop functionality
 const uploadArea = document.getElementById('uploadArea');

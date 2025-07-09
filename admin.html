@@ -21,6 +21,43 @@
         
         <input type="file" id="csvFile" class="file-input" accept=".csv" onchange="handleFileUpload(event)">
         
+        <div class="customization-section" id="customizationSection" style="display: none;">
+            <h3 class="customization-title">📝 Customize Your Analysis</h3>
+            <p class="customization-description">Define what insights you want to extract from your survey data:</p>
+            
+            <div class="custom-inputs">
+                <div class="input-group">
+                    <label for="positivesInput">✨ What's Working Well</label>
+                    <textarea id="positivesInput" placeholder="e.g. collaboration, communication, quality of work, responsiveness, technical skills">collaboration, communication, quality of work, responsiveness, technical skills</textarea>
+                    <small>Keywords to look for in positive feedback columns</small>
+                </div>
+                
+                <div class="input-group">
+                    <label for="improvementsInput">🎯 Areas to Improve</label>
+                    <textarea id="improvementsInput" placeholder="e.g. documentation, meetings, processes, tools, training">documentation, meetings, processes, tools, training</textarea>
+                    <small>Keywords to look for in improvement feedback columns</small>
+                </div>
+                
+                <div class="input-group">
+                    <label for="immediateInput">⚡ Quick Wins (Immediate Actions)</label>
+                    <textarea id="immediateInput" placeholder="e.g. Send weekly updates, Review documentation, Set up feedback channels">Send weekly updates, Review documentation, Set up feedback channels</textarea>
+                    <small>Comma-separated list of immediate actions (2 weeks)</small>
+                </div>
+                
+                <div class="input-group">
+                    <label for="longtermInput">🚀 Long-term Improvements</label>
+                    <textarea id="longtermInput" placeholder="e.g. Develop training program, Implement new tools, Create process framework">Develop training program, Implement new tools, Create process framework</textarea>
+                    <small>Comma-separated list of longer-term goals (1-3 months)</small>
+                </div>
+                
+                <div class="input-group">
+                    <label for="purposeInput">📋 Survey Purpose</label>
+                    <textarea id="purposeInput" placeholder="Describe why this survey was conducted...">This survey was conducted to gather feedback from the team on how effectively we're collaborating and contributing to our shared goals. The aim is to understand what's working well and identify areas where we can improve to better support our objectives.</textarea>
+                    <small>Brief description of the survey's purpose (will appear on slide 1)</small>
+                </div>
+            </div>
+        </div>
+
         <button class="generate-btn" id="generateBtn" disabled onclick="generatePresentation()">
             Generate Presentation
         </button>
