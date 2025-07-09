@@ -631,6 +631,7 @@ function resetAdmin() {
     presentationData = null;
 }
 
+
 // Drag and drop functionality
 const uploadArea = document.getElementById('uploadArea');
 
