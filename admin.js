@@ -514,14 +514,289 @@ function generateFeedbackPageFromInstruction(title, instruction, data) {
 }
 
 function analyzeTextResponses(responses, instruction) {
-    const analysis = [];
+    if (responses.length === 0) return [];
     
-    if (responses.length === 0) return analysis;
+    // ACTUALLY read the responses and create real summaries
+    const realAnalysis = createActualSummaries(responses, instruction);
     
-    // Real AI-style analysis - synthesize insights, don't just count
-    const synthesizedInsights = synthesizeInsights(responses, instruction);
+    return realAnalysis;
+}
+
+function createActualSummaries(responses, instruction) {
+    const summaries = [];
     
-    return synthesizedInsights;
+    // Group responses by actual content similarity
+    const contentGroups = groupResponsesByContent(responses);
+    
+    // For each group, create a real summary of what people actually said
+    contentGroups.forEach((group, index) => {
+        if (summaries.length >= 6) return;
+        
+        const summary = summarizeResponseGroup(group);
+        if (summary) {
+            summaries.push({
+                title: summary.title,
+                content: summary.content
+            });
+        }
+    });
+    
+    return summaries;
+}
+
+function groupResponsesByContent(responses) {
+    // Simple but effective content grouping
+    const groups = [];
+    const processed = new Set();
+    
+    responses.forEach((response, index) => {
+        if (processed.has(index)) return;
+        
+        const group = [response];
+        const mainWords = extractKeyWords(response);
+        
+        // Find similar responses
+        responses.forEach((otherResponse, otherIndex) => {
+            if (otherIndex === index || processed.has(otherIndex)) return;
+            
+            const otherWords = extractKeyWords(otherResponse);
+            const overlap = calculateWordOverlap(mainWords, otherWords);
+            
+            // If responses share key concepts, group them
+            if (overlap > 0.3 || sharesSimilarSentiment(response, otherResponse)) {
+                group.push(otherResponse);
+                processed.add(otherIndex);
+            }
+        });
+        
+        processed.add(index);
+        
+        // Only include groups with substantial content
+        if (group.length >= 1) {
+            groups.push(group);
+        }
+    });
+    
+    // Sort by group size (most common themes first)
+    return groups.sort((a, b) => b.length - a.length);
+}
+
+function extractKeyWords(text) {
+    return text.toLowerCase()
+        .replace(/[^\w\s]/g, ' ')
+        .split(/\s+/)
+        .filter(word => word.length > 3 && !isStopWord(word))
+        .slice(0, 10); // Top 10 key words
+}
+
+function calculateWordOverlap(words1, words2) {
+    const intersection = words1.filter(word => words2.includes(word));
+    const union = [...new Set([...words1, ...words2])];
+    return intersection.length / union.length;
+}
+
+function sharesSimilarSentiment(text1, text2) {
+    const positiveWords = ['good', 'great', 'excellent', 'love', 'like', 'helpful', 'easy', 'clear'];
+    const negativeWords = ['bad', 'poor', 'difficult', 'confusing', 'frustrating', 'problem', 'issue'];
+    
+    const sentiment1 = getSentiment(text1, positiveWords, negativeWords);
+    const sentiment2 = getSentiment(text2, positiveWords, negativeWords);
+    
+    return sentiment1 === sentiment2 && sentiment1 !== 'neutral';
+}
+
+function getSentiment(text, positiveWords, negativeWords) {
+    const textLower = text.toLowerCase();
+    const posCount = positiveWords.filter(word => textLower.includes(word)).length;
+    const negCount = negativeWords.filter(word => textLower.includes(word)).length;
+    
+    if (posCount > negCount) return 'positive';
+    if (negCount > posCount) return 'negative';
+    return 'neutral';
+}
+
+function summarizeResponseGroup(responseGroup) {
+    if (responseGroup.length === 0) return null;
+    
+    // Find the main topic/theme from this group
+    const allText = responseGroup.join(' ').toLowerCase();
+    const keyWords = extractKeyWords(allText);
+    
+    // Determine if this is positive, negative, or neutral feedback
+    const sentiment = getSentiment(allText, 
+        ['good', 'great', 'excellent', 'love', 'like', 'helpful', 'easy', 'clear', 'useful', 'satisfied'],
+        ['bad', 'poor', 'difficult', 'confusing', 'frustrating', 'problem', 'issue', 'slow', 'hard']
+    );
+    
+    // Create a meaningful title based on actual content
+    const title = generateTitleFromContent(responseGroup, keyWords, sentiment);
+    
+    // Create summary based on what people actually said
+    const content = generateContentSummary(responseGroup, sentiment);
+    
+    return { title, content };
+}
+
+function generateTitleFromContent(responses, keyWords, sentiment) {
+    // Look for specific topics mentioned
+    const topics = {
+        'communication': ['communication', 'communicate', 'talk', 'discuss', 'meeting', 'email'],
+        'speed': ['speed', 'fast', 'slow', 'quick', 'time', 'wait'],
+        'usability': ['easy', 'difficult', 'hard', 'simple', 'complex', 'user', 'interface'],
+        'support': ['help', 'support', 'assist', 'guidance', 'training'],
+        'quality': ['quality', 'good', 'bad', 'excellent', 'poor', 'reliable'],
+        'features': ['feature', 'function', 'tool', 'capability', 'option']
+    };
+    
+    // Find which topic is most relevant
+    let mainTopic = 'General Feedback';
+    let maxMatches = 0;
+    
+    Object.entries(topics).forEach(([topic, keywords]) => {
+        const matches = keywords.filter(keyword => 
+            keyWords.some(keyWord => keyWord.includes(keyword) || keyword.includes(keyWord))
+        ).length;
+        
+        if (matches > maxMatches) {
+            maxMatches = matches;
+            mainTopic = topic.charAt(0).toUpperCase() + topic.slice(1);
+        }
+    });
+    
+    // Add sentiment context if clear
+    if (sentiment === 'positive' && maxMatches > 0) {
+        return `${mainTopic} Strengths`;
+    } else if (sentiment === 'negative' && maxMatches > 0) {
+        return `${mainTopic} Concerns`;
+    }
+    
+    return mainTopic;
+}
+
+function generateContentSummary(responses, sentiment) {
+    const count = responses.length;
+    
+    if (count === 1) {
+        // Single response - create a concise version
+        const response = responses[0];
+        if (response.length <= 100) {
+            return response;
+        }
+        // Extract the key sentence or phrase
+        const sentences = response.split(/[.!?]+/);
+        const mainSentence = sentences.find(s => s.trim().length > 20) || sentences[0];
+        return mainSentence.trim() + (sentences.length > 1 ? '...' : '');
+    }
+    
+    // Multiple responses - find common themes in what people actually said
+    const commonPhrases = findCommonPhrases(responses);
+    const sharedConcerns = findSharedConcerns(responses);
+    
+    if (commonPhrases.length > 0) {
+        const mainPhrase = commonPhrases[0];
+        return `${count} people mentioned similar points about ${mainPhrase.toLowerCase()}. ${getRepresentativeExample(responses, mainPhrase)}`;
+    }
+    
+    if (sharedConcerns.length > 0) {
+        return `${count} responses highlight ${sharedConcerns[0]}. ${getRepresentativeExample(responses)}`;
+    }
+    
+    // Fallback - find the most substantial response as representative
+    const longestResponse = responses.reduce((longest, current) => 
+        current.length > longest.length ? current : longest
+    );
+    
+    return `${count} similar responses. Key point: ${longestResponse.substring(0, 150)}${longestResponse.length > 150 ? '...' : ''}`;
+}
+
+function findCommonPhrases(responses) {
+    const phrases = [];
+    
+    responses.forEach(response => {
+        // Extract meaningful phrases (3-6 words)
+        const words = response.toLowerCase().split(/\s+/);
+        for (let i = 0; i < words.length - 2; i++) {
+            const phrase = words.slice(i, i + 3).join(' ');
+            if (phrase.length > 10 && !isStopPhrase(phrase)) {
+                phrases.push(phrase);
+            }
+        }
+    });
+    
+    // Count phrase frequency
+    const phraseCount = {};
+    phrases.forEach(phrase => {
+        phraseCount[phrase] = (phraseCount[phrase] || 0) + 1;
+    });
+    
+    // Return phrases mentioned by multiple people
+    return Object.entries(phraseCount)
+        .filter(([phrase, count]) => count >= 2)
+        .sort(([,a], [,b]) => b - a)
+        .map(([phrase]) => phrase);
+}
+
+function findSharedConcerns(responses) {
+    const concerns = [];
+    const concernWords = ['issue', 'problem', 'concern', 'difficulty', 'challenge', 'trouble'];
+    
+    responses.forEach(response => {
+        concernWords.forEach(word => {
+            if (response.toLowerCase().includes(word)) {
+                // Extract context around the concern word
+                const words = response.toLowerCase().split(/\s+/);
+                const index = words.indexOf(word);
+                if (index > 0) {
+                    const context = words.slice(Math.max(0, index - 2), index + 3).join(' ');
+                    concerns.push(context);
+                }
+            }
+        });
+    });
+    
+    return [...new Set(concerns)];
+}
+
+function getRepresentativeExample(responses, topic = '') {
+    // Find the clearest, most complete response
+    let bestResponse = '';
+    let bestScore = 0;
+    
+    responses.forEach(response => {
+        let score = 0;
+        
+        // Prefer responses that mention the topic
+        if (topic && response.toLowerCase().includes(topic.toLowerCase())) {
+            score += 3;
+        }
+        
+        // Prefer complete sentences
+        if (response.includes('.') || response.includes('!')) {
+            score += 2;
+        }
+        
+        // Prefer medium length (not too short, not too long)
+        if (response.length >= 50 && response.length <= 200) {
+            score += 2;
+        }
+        
+        // Prefer responses that explain rather than just state
+        if (response.includes('because') || response.includes('since') || response.includes('when')) {
+            score += 1;
+        }
+        
+        if (score > bestScore) {
+            bestScore = score;
+            bestResponse = response;
+        }
+    });
+    
+    return bestResponse.length > 120 ? bestResponse.substring(0, 120) + '...' : bestResponse;
+}
+
+function isStopPhrase(phrase) {
+    const stopPhrases = ['i think that', 'it would be', 'there are some', 'i would like', 'it is important'];
+    return stopPhrases.some(stop => phrase.includes(stop));
 }
 
 function synthesizeInsights(responses, instruction) {
