@@ -516,61 +516,279 @@ function generateFeedbackPageFromInstruction(title, instruction, data) {
 function analyzeTextResponses(responses, instruction) {
     const analysis = [];
     
-    // 1. Extract common themes
-    const themes = extractThemesFromResponses(responses);
+    if (responses.length === 0) return analysis;
     
-    // 2. Categorize by sentiment if instruction suggests it
+    // Real AI-style analysis - synthesize insights, don't just count
+    const synthesizedInsights = synthesizeInsights(responses, instruction);
+    
+    return synthesizedInsights;
+}
+
+function synthesizeInsights(responses, instruction) {
+    const insights = [];
     const instructionLower = instruction.toLowerCase();
-    const needsSentiment = instructionLower.includes('positive') || 
-                          instructionLower.includes('negative') || 
-                          instructionLower.includes('good') || 
-                          instructionLower.includes('bad') ||
-                          instructionLower.includes('problem');
     
-    if (needsSentiment) {
-        const sentimentAnalysis = categorizeBySentiment(responses);
+    // 1. Analyze for improvement opportunities
+    const improvements = analyzeForImprovements(responses);
+    improvements.forEach(improvement => {
+        insights.push({
+            title: improvement.area,
+            content: improvement.insight,
+            actionable: true
+        });
+    });
+    
+    // 2. Identify strengths and what's working
+    const strengths = analyzeForStrengths(responses);
+    strengths.forEach(strength => {
+        insights.push({
+            title: strength.area,
+            content: strength.insight,
+            actionable: false
+        });
+    });
+    
+    // 3. Detect patterns and trends
+    const patterns = detectPatterns(responses);
+    patterns.forEach(pattern => {
+        insights.push({
+            title: pattern.title,
+            content: pattern.insight,
+            trend: true
+        });
+    });
+    
+    // 4. Generate strategic recommendations
+    const recommendations = generateRecommendations(responses, instruction);
+    recommendations.forEach(rec => {
+        insights.push({
+            title: rec.title,
+            content: rec.insight,
+            strategic: true
+        });
+    });
+    
+    return insights.slice(0, 6);
+}
+
+function analyzeForImprovements(responses) {
+    const improvements = [];
+    
+    // Analyze language patterns for improvement signals
+    const improvementSignals = [
+        { keywords: ['slow', 'delay', 'wait', 'time', 'quick', 'faster'], area: 'Speed & Efficiency', type: 'process' },
+        { keywords: ['confus', 'unclear', 'understand', 'explain', 'clarif'], area: 'Communication Clarity', type: 'communication' },
+        { keywords: ['difficult', 'hard', 'complicated', 'complex', 'simpl'], area: 'User Experience', type: 'usability' },
+        { keywords: ['train', 'learn', 'help', 'support', 'guid'], area: 'Training & Support', type: 'education' },
+        { keywords: ['feature', 'missing', 'add', 'need', 'would like'], area: 'Feature Gaps', type: 'functionality' },
+        { keywords: ['bug', 'error', 'problem', 'issue', 'fail'], area: 'Quality Issues', type: 'reliability' }
+    ];
+    
+    improvementSignals.forEach(signal => {
+        const relevantResponses = responses.filter(response => 
+            signal.keywords.some(keyword => 
+                response.toLowerCase().includes(keyword)
+            )
+        );
         
-        if (instructionLower.includes('positive') || instructionLower.includes('good')) {
-            sentimentAnalysis.positive.forEach((item, index) => {
-                if (analysis.length < 6) {
-                    analysis.push({
-                        title: `Positive Theme ${index + 1}`,
-                        content: item.summary,
-                        count: item.count
-                    });
-                }
-            });
+        if (relevantResponses.length >= 2) {
+            const insight = generateImprovementInsight(signal, relevantResponses, responses.length);
+            if (insight) improvements.push(insight);
         }
+    });
+    
+    return improvements;
+}
+
+function generateImprovementInsight(signal, relevantResponses, totalResponses) {
+    const percentage = Math.round((relevantResponses.length / totalResponses) * 100);
+    const severity = relevantResponses.length >= totalResponses * 0.3 ? 'significant' : 'moderate';
+    
+    let insight = '';
+    
+    switch (signal.type) {
+        case 'process':
+            insight = `Speed and efficiency concerns affect ${percentage}% of users. Consider streamlining workflows and optimizing response times to improve user satisfaction.`;
+            break;
+        case 'communication':
+            insight = `${percentage}% of feedback indicates communication clarity issues. Implementing clearer documentation and standardized communication protocols could significantly improve user experience.`;
+            break;
+        case 'usability':
+            insight = `Usability challenges impact ${percentage}% of users. Simplifying interfaces and improving user journey design should be prioritized to reduce friction.`;
+            break;
+        case 'education':
+            insight = `${percentage}% of responses suggest training or support gaps. Developing comprehensive onboarding materials and self-service resources could reduce support burden while improving user success.`;
+            break;
+        case 'functionality':
+            insight = `Feature requests appear in ${percentage}% of feedback. Conducting user research to prioritize missing functionality could drive engagement and satisfaction.`;
+            break;
+        case 'reliability':
+            insight = `Quality concerns mentioned by ${percentage}% of users represent a ${severity} risk to user trust. Implementing robust testing and quality assurance processes is critical.`;
+            break;
+        default:
+            insight = `${signal.area} issues affect ${percentage}% of users and should be addressed to improve overall experience.`;
+    }
+    
+    return {
+        area: signal.area,
+        insight: insight,
+        severity: severity,
+        percentage: percentage
+    };
+}
+
+function analyzeForStrengths(responses) {
+    const strengths = [];
+    
+    const strengthSignals = [
+        { keywords: ['easy', 'simple', 'intuitive', 'straightforward'], area: 'Ease of Use', type: 'usability' },
+        { keywords: ['fast', 'quick', 'rapid', 'efficient', 'speed'], area: 'Performance', type: 'efficiency' },
+        { keywords: ['helpful', 'support', 'assist', 'responsive'], area: 'Customer Support', type: 'service' },
+        { keywords: ['love', 'great', 'excellent', 'amazing', 'perfect'], area: 'User Satisfaction', type: 'satisfaction' },
+        { keywords: ['reliable', 'stable', 'consistent', 'dependable'], area: 'Reliability', type: 'quality' },
+        { keywords: ['useful', 'valuable', 'benefit', 'solve'], area: 'Value Proposition', type: 'impact' }
+    ];
+    
+    strengthSignals.forEach(signal => {
+        const relevantResponses = responses.filter(response => 
+            signal.keywords.some(keyword => 
+                response.toLowerCase().includes(keyword)
+            )
+        );
         
-        if (instructionLower.includes('negative') || instructionLower.includes('problem')) {
-            sentimentAnalysis.negative.forEach((item, index) => {
-                if (analysis.length < 6) {
-                    analysis.push({
-                        title: `Issue ${index + 1}`,
-                        content: item.summary,
-                        count: item.count
-                    });
-                }
-            });
+        if (relevantResponses.length >= 2) {
+            const insight = generateStrengthInsight(signal, relevantResponses, responses.length);
+            if (insight) strengths.push(insight);
         }
-    } else {
-        // General thematic analysis
-        themes.slice(0, 6).forEach((theme, index) => {
-            analysis.push({
-                title: theme.title,
-                content: createThemeSummary(theme, responses),
-                count: theme.count
-            });
+    });
+    
+    return strengths;
+}
+
+function generateStrengthInsight(signal, relevantResponses, totalResponses) {
+    const percentage = Math.round((relevantResponses.length / totalResponses) * 100);
+    const strength_level = percentage >= 40 ? 'major competitive advantage' : percentage >= 20 ? 'strong asset' : 'positive indicator';
+    
+    let insight = '';
+    
+    switch (signal.type) {
+        case 'usability':
+            insight = `Ease of use is a ${strength_level} with ${percentage}% positive mentions. This intuitive design should be maintained and leveraged as a key differentiator in marketing.`;
+            break;
+        case 'efficiency':
+            insight = `Performance excellence noted by ${percentage}% of users represents a ${strength_level}. Continue investing in speed optimizations to maintain this competitive edge.`;
+            break;
+        case 'service':
+            insight = `Customer support quality recognized by ${percentage}% of users is a ${strength_level}. This strength can drive customer retention and referrals.`;
+            break;
+        case 'satisfaction':
+            insight = `High satisfaction levels from ${percentage}% of users indicate strong product-market fit. Focus on scaling these positive experiences to drive growth.`;
+            break;
+        case 'quality':
+            insight = `Reliability praised by ${percentage}% of users builds trust and reduces churn risk. This foundation enables confident expansion of features and services.`;
+            break;
+        case 'impact':
+            insight = `Value recognition from ${percentage}% of users validates the core proposition. Amplify these benefits in customer success stories and product positioning.`;
+            break;
+        default:
+            insight = `${signal.area} strength recognized by ${percentage}% of users should be leveraged for competitive advantage.`;
+    }
+    
+    return {
+        area: signal.area,
+        insight: insight,
+        strength_level: strength_level,
+        percentage: percentage
+    };
+}
+
+function detectPatterns(responses) {
+    const patterns = [];
+    
+    // Analyze response patterns for business insights
+    
+    // 1. Urgency patterns
+    const urgentLanguage = responses.filter(r => 
+        /urgent|asap|immediately|critical|emergency|now/i.test(r)
+    ).length;
+    
+    if (urgentLanguage >= 2) {
+        const urgencyRate = Math.round((urgentLanguage / responses.length) * 100);
+        patterns.push({
+            title: 'Urgency Pattern',
+            insight: `${urgencyRate}% of feedback contains urgent language, suggesting time-sensitive issues requiring immediate attention and faster response protocols.`
         });
     }
     
-    // If no themes found, create frequency-based summaries
-    if (analysis.length === 0) {
-        const summaries = createFrequencySummaries(responses);
-        analysis.push(...summaries.slice(0, 6));
+    // 2. Comparison patterns (mentions of competitors or alternatives)
+    const comparisons = responses.filter(r => 
+        /compared to|better than|like|similar|instead|alternative/i.test(r)
+    ).length;
+    
+    if (comparisons >= 2) {
+        const comparisonRate = Math.round((comparisons / responses.length) * 100);
+        patterns.push({
+            title: 'Competitive Context',
+            insight: `${comparisonRate}% of responses include comparisons, indicating users are actively evaluating alternatives. Strengthening unique value propositions is recommended.`
+        });
     }
     
-    return analysis;
+    // 3. Future intent patterns
+    const futureIntent = responses.filter(r => 
+        /will|plan|going to|next|future|soon|continue/i.test(r)
+    ).length;
+    
+    if (futureIntent >= 3) {
+        const intentRate = Math.round((futureIntent / responses.length) * 100);
+        patterns.push({
+            title: 'Future Engagement',
+            insight: `${intentRate}% of responses indicate future planning or continued engagement, suggesting strong user retention potential and growth opportunities.`
+        });
+    }
+    
+    return patterns;
+}
+
+function generateRecommendations(responses, instruction) {
+    const recommendations = [];
+    
+    // Generate strategic recommendations based on overall response analysis
+    const totalResponses = responses.length;
+    const avgResponseLength = responses.reduce((acc, r) => acc + r.length, 0) / totalResponses;
+    
+    // Recommendation based on engagement level
+    if (avgResponseLength > 200) {
+        recommendations.push({
+            title: 'High Engagement Opportunity',
+            insight: `Detailed feedback (avg ${Math.round(avgResponseLength)} characters) indicates highly engaged users. Consider implementing a feedback loop program to harness this engagement for product development and community building.`
+        });
+    }
+    
+    // Recommendation based on response diversity
+    const uniqueWords = new Set();
+    responses.forEach(r => {
+        r.toLowerCase().split(/\s+/).forEach(word => {
+            if (word.length > 3) uniqueWords.add(word);
+        });
+    });
+    
+    const vocabulary_diversity = uniqueWords.size / totalResponses;
+    if (vocabulary_diversity > 10) {
+        recommendations.push({
+            title: 'Diverse User Needs',
+            insight: `High vocabulary diversity suggests varied user segments with different needs. Implement user segmentation analysis to create targeted experiences and personalized solutions.`
+        });
+    }
+    
+    // Strategic recommendation based on instruction context
+    if (instruction.toLowerCase().includes('improve')) {
+        recommendations.push({
+            title: 'Improvement Strategy',
+            insight: `Focus on systematic improvement tracking with regular pulse surveys to measure progress. Establish clear metrics and communicate changes back to users to demonstrate responsiveness.`
+        });
+    }
+    
+    return recommendations;
 }
 
 function categorizeBySentiment(responses) {
