@@ -560,11 +560,63 @@ function createBasicSummary(responses, instruction) {
 }
 
 // API Configuration
-function saveApiKey() {
+function handleApiKeyInput() {
     const apiKey = document.getElementById('claudeApiKey').value;
+    const testBtn = document.querySelector('.test-api-btn');
+    
+    // Enable/disable test button based on input
+    testBtn.disabled = !apiKey || apiKey.length < 10;
+    
+    // Reset status when user is typing
+    if (apiKey.length > 0) {
+        const statusEl = document.getElementById('apiStatus');
+        statusEl.innerHTML = '<span class="status-indicator testing">●</span><span>Ready to test...</span>';
+    }
+}
+
+function saveApiKey() {
+    const apiKey = document.getElementById('claudeApiKey').value.trim();
     if (apiKey) {
         localStorage.setItem('claude_api_key', apiKey);
         testApiConnection(apiKey);
+    }
+}
+
+function clearApiKey() {
+    document.getElementById('claudeApiKey').value = '';
+    localStorage.removeItem('claude_api_key');
+    const statusEl = document.getElementById('apiStatus');
+    statusEl.innerHTML = '<span class="status-indicator offline">●</span><span>API not configured</span>';
+    document.querySelector('.test-api-btn').disabled = true;
+    window.claudeApiReady = false;
+}
+
+function toggleApiKeyVisibility() {
+    const input = document.getElementById('claudeApiKey');
+    const button = document.querySelector('.toggle-visibility-btn');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        button.textContent = '🙈';
+        button.title = 'Hide key';
+    } else {
+        input.type = 'password';
+        button.textContent = '👁️';
+        button.title = 'Show key';
+    }
+}
+
+function manualTestApi() {
+    const apiKey = document.getElementById('claudeApiKey').value.trim();
+    if (apiKey) {
+        saveApiKey(); // This will trigger the test
+    }
+}
+
+function clearAllApiData() {
+    if (confirm('This will clear your API key and all stored data. Continue?')) {
+        localStorage.removeItem('claude_api_key');
+        clearApiKey();
     }
 }
 
@@ -573,7 +625,8 @@ async function testApiConnection(apiKey) {
     statusEl.innerHTML = '<span class="status-indicator testing">●</span><span>Testing connection...</span>';
     
     try {
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
+        // Use a simple completion test instead of messages
+        const response = await fetch('https://api.anthropic.com/v1/complete', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -581,20 +634,32 @@ async function testApiConnection(apiKey) {
                 'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
-                model: 'claude-3-sonnet-20240229',
-                max_tokens: 10,
-                messages: [{ role: 'user', content: 'Test' }]
+                model: 'claude-instant-1.2',
+                prompt: '\n\nHuman: Test\n\nAssistant:',
+                max_tokens_to_sample: 5,
+                stop_sequences: ['\n\nHuman:']
             })
         });
         
-        if (response.ok || response.status === 400) { // 400 is fine, means API key works
+        const responseText = await response.text();
+        console.log('API Test Response:', response.status, responseText);
+        
+        if (response.ok) {
             statusEl.innerHTML = '<span class="status-indicator online">●</span><span>API connected - ready for intelligent analysis!</span>';
             window.claudeApiReady = true;
+        } else if (response.status === 401) {
+            statusEl.innerHTML = '<span class="status-indicator offline">●</span><span>Invalid API key - please check and try again</span>';
+            window.claudeApiReady = false;
+        } else if (response.status === 429) {
+            statusEl.innerHTML = '<span class="status-indicator offline">●</span><span>Rate limit reached - API key is valid but quota exceeded</span>';
+            window.claudeApiReady = false;
         } else {
-            throw new Error('API connection failed');
+            statusEl.innerHTML = '<span class="status-indicator offline">●</span><span>API error (${response.status}) - please try again</span>';
+            window.claudeApiReady = false;
         }
     } catch (error) {
-        statusEl.innerHTML = '<span class="status-indicator offline">●</span><span>API connection failed - check your key</span>';
+        console.error('API test error:', error);
+        statusEl.innerHTML = '<span class="status-indicator offline">●</span><span>Connection failed - check your internet and API key</span>';
         window.claudeApiReady = false;
     }
 }
@@ -604,7 +669,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const savedKey = localStorage.getItem('claude_api_key');
     if (savedKey) {
         document.getElementById('claudeApiKey').value = savedKey;
-        testApiConnection(savedKey);
+        handleApiKeyInput(); // Enable test button
+        // Don't auto-test on load to avoid unnecessary API calls
+        const statusEl = document.getElementById('apiStatus');
+        statusEl.innerHTML = '<span class="status-indicator testing">●</span><span>Saved key loaded - click Test Connection to verify</span>';
     }
 });
 
@@ -620,7 +688,7 @@ async function analyzeWithClaude(responses, instruction, pageTitle) {
     try {
         const prompt = createAnalysisPrompt(responses, instruction, pageTitle);
         
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
+        const response = await fetch('https://api.anthropic.com/v1/complete', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -628,21 +696,20 @@ async function analyzeWithClaude(responses, instruction, pageTitle) {
                 'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
-                model: 'claude-3-sonnet-20240229',
-                max_tokens: 1000,
-                messages: [{ 
-                    role: 'user', 
-                    content: prompt 
-                }]
+                model: 'claude-instant-1.2',
+                prompt: prompt,
+                max_tokens_to_sample: 1000,
+                stop_sequences: ['\n\nHuman:'],
+                temperature: 0.1
             })
         });
         
         if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
+            throw new Error(`API error: ${response.status} - ${await response.text()}`);
         }
         
         const data = await response.json();
-        const analysis = parseClaudeResponse(data.content[0].text);
+        const analysis = parseClaudeResponse(data.completion);
         
         return analysis;
         
@@ -650,13 +717,13 @@ async function analyzeWithClaude(responses, instruction, pageTitle) {
         console.error('Claude API error:', error);
         return [{
             title: "Analysis Error",
-            content: `Unable to analyze responses: ${error.message}. Using basic analysis instead.`
+            content: `Unable to analyze responses: ${error.message}. Check your API key and try again.`
         }];
     }
 }
 
 function createAnalysisPrompt(responses, instruction, pageTitle) {
-    return `You are analyzing survey responses for a presentation slide titled "${pageTitle}".
+    return `\n\nHuman: You are analyzing survey responses for a presentation slide titled "${pageTitle}".
 
 User instruction: "${instruction}"
 
@@ -679,7 +746,9 @@ Requirements:
 - If responses are positive/negative, reflect that in your analysis
 - Don't make up information not present in the responses
 
-Return only the JSON array, no other text.`;
+Return only the JSON array, no other text.
+
+\n\nAssistant: `;
 }
 
 function parseClaudeResponse(responseText) {

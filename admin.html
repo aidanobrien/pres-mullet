@@ -27,13 +27,22 @@
             
             <div class="api-input-group">
                 <label for="claudeApiKey">Claude API Key:</label>
-                <input type="password" id="claudeApiKey" placeholder="sk-ant-..." onchange="saveApiKey()">
-                <small>Your API key is stored locally and never sent to our servers</small>
+                <div class="api-input-container">
+                    <input type="password" id="claudeApiKey" placeholder="sk-ant-api03-..." onchange="saveApiKey()" oninput="handleApiKeyInput()">
+                    <button type="button" class="clear-api-btn" onclick="clearApiKey()" title="Clear API key">🗑️</button>
+                    <button type="button" class="toggle-visibility-btn" onclick="toggleApiKeyVisibility()" title="Show/Hide key">👁️</button>
+                </div>
+                <small>Your API key is stored locally and never sent to our servers. <a href="https://docs.anthropic.com/claude/reference/getting-started-with-the-api" target="_blank">Need help?</a></small>
             </div>
             
             <div class="api-status" id="apiStatus">
                 <span class="status-indicator offline">●</span>
                 <span>API not configured</span>
+            </div>
+            
+            <div class="api-actions">
+                <button type="button" class="test-api-btn" onclick="manualTestApi()" disabled>Test Connection</button>
+                <button type="button" class="clear-all-btn" onclick="clearAllApiData()">Clear All Data</button>
             </div>
         </div>
 

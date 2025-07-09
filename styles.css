@@ -35,8 +35,15 @@ body {
     margin-bottom: 8px;
 }
 
-.api-input-group input {
-    width: 100%;
+.api-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.api-input-container input {
+    flex: 1;
     border: 2px solid #0ea5e9;
     border-radius: 8px;
     padding: 10px 12px;
@@ -44,10 +51,24 @@ body {
     font-family: monospace;
 }
 
-.api-input-group input:focus {
+.api-input-container input:focus {
     outline: none;
     border-color: #0284c7;
     box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.clear-api-btn, .toggle-visibility-btn {
+    background: #e0f2fe;
+    border: 1px solid #0ea5e9;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.clear-api-btn:hover, .toggle-visibility-btn:hover {
+    background: #bae6fd;
 }
 
 .api-input-group small {
@@ -58,12 +79,22 @@ body {
     font-style: italic;
 }
 
+.api-input-group small a {
+    color: #0284c7;
+    text-decoration: none;
+}
+
+.api-input-group small a:hover {
+    text-decoration: underline;
+}
+
 .api-status {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 14px;
     font-weight: 500;
+    margin-bottom: 15px;
 }
 
 .status-indicator {
@@ -80,6 +111,45 @@ body {
 
 .status-indicator.testing {
     color: #ea580c;
+}
+
+.api-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.test-api-btn, .clear-all-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.test-api-btn {
+    background: #0ea5e9;
+    color: white;
+    border: none;
+}
+
+.test-api-btn:hover:not(:disabled) {
+    background: #0284c7;
+}
+
+.test-api-btn:disabled {
+    background: #cbd5e1;
+    cursor: not-allowed;
+}
+
+.clear-all-btn {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+}
+
+.clear-all-btn:hover {
+    background: #fee2e2;
 }
 
 /* Update existing styles */
