@@ -18,8 +18,10 @@ function handleFileUpload(event) {
             const csvText = e.target.result;
             surveyData = parseCSVData(csvText);
             
-            // Show customization section
-            document.getElementById('customizationSection').style.display = 'block';
+            // Analyze the survey structure and show preview
+            const surveyAnalysis = analyzeSurveyStructure(surveyData);
+            showSurveyPreview(surveyAnalysis);
+            
             document.getElementById('generateBtn').disabled = false;
             
             // Update upload area to show file loaded
@@ -30,18 +32,296 @@ function handleFileUpload(event) {
                 <div class="upload-subtext">File loaded successfully (${surveyData.data.length} responses)</div>
             `;
             
-            // Scroll to customization section
-            document.getElementById('customizationSection').scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'start' 
-            });
-            
         } catch (error) {
             alert('Error reading CSV file. Please check the format and try again.');
             console.error('CSV parsing error:', error);
         }
     };
     reader.readAsText(file);
+}
+
+function analyzeSurveyStructure(data) {
+    const headers = data.headers;
+    const analysis = {
+        surveyType: detectSurveyType(headers),
+        questionCategories: categorizeQuestions(headers, data.data),
+        responseCount: data.data.length,
+        suggestedPages: []
+    };
+    
+    // Create suggested presentation pages based on the analysis
+    analysis.suggestedPages = generateSuggestedPages(analysis.questionCategories, data);
+    
+    return analysis;
+}
+
+function detectSurveyType(headers) {
+    const headerText = headers.join(' ').toLowerCase();
+    
+    // Define survey type patterns
+    const patterns = {
+        'Employee Feedback': ['employee', 'workplace', 'job', 'manager', 'team', 'work environment'],
+        'Customer Satisfaction': ['customer', 'service', 'product', 'satisfaction', 'experience', 'recommend'],
+        'Event Feedback': ['event', 'conference', 'session', 'speaker', 'venue', 'workshop'],
+        'Training Evaluation': ['training', 'course', 'learning', 'instructor', 'material', 'knowledge'],
+        'Product Feedback': ['product', 'feature', 'usability', 'design', 'functionality', 'bug'],
+        'Team Retrospective': ['sprint', 'retrospective', 'process', 'workflow', 'blockers', 'impediments'],
+        'Performance Review': ['performance', 'goals', 'objectives', 'achievements', 'development', 'skills']
+    };
+    
+    let bestMatch = 'General Survey';
+    let highestScore = 0;
+    
+    Object.entries(patterns).forEach(([type, keywords]) => {
+        const score = keywords.reduce((acc, keyword) => {
+            return acc + (headerText.includes(keyword) ? 1 : 0);
+        }, 0);
+        
+        if (score > highestScore) {
+            highestScore = score;
+            bestMatch = type;
+        }
+    });
+    
+    return bestMatch;
+}
+
+function categorizeQuestions(headers, data) {
+    const categories = {};
+    
+    headers.forEach(header => {
+        const category = classifyQuestion(header, data);
+        if (!categories[category.type]) {
+            categories[category.type] = [];
+        }
+        categories[category.type].push({
+            question: header,
+            type: category.type,
+            sentiment: category.sentiment,
+            dataType: category.dataType,
+            sampleData: getSampleData(header, data)
+        });
+    });
+    
+    return categories;
+}
+
+function classifyQuestion(header, data) {
+    const headerLower = header.toLowerCase();
+    
+    // Determine data type
+    const sampleValues = data.slice(0, 5).map(row => row[header]).filter(val => val && val.trim());
+    const dataType = determineDataType(sampleValues);
+    
+    // Classification patterns
+    const patterns = {
+        rating: {
+            keywords: ['rate', 'rating', 'scale', 'score', 'satisfaction', 'likely', 'recommend'],
+            sentiment: 'neutral'
+        },
+        positive: {
+            keywords: ['good', 'well', 'best', 'like', 'enjoy', 'positive', 'strength', 'working'],
+            sentiment: 'positive'
+        },
+        negative: {
+            keywords: ['problem', 'issue', 'challenge', 'difficult', 'improve', 'better', 'concern', 'dislike'],
+            sentiment: 'negative'
+        },
+        suggestion: {
+            keywords: ['suggest', 'recommend', 'change', 'add', 'feature', 'would like', 'wish'],
+            sentiment: 'constructive'
+        },
+        demographic: {
+            keywords: ['age', 'gender', 'location', 'department', 'role', 'experience', 'years'],
+            sentiment: 'neutral'
+        },
+        general: {
+            keywords: ['comment', 'feedback', 'thoughts', 'opinion', 'additional', 'other', 'anything'],
+            sentiment: 'neutral'
+        }
+    };
+    
+    // Find best matching pattern
+    let bestMatch = { type: 'general', sentiment: 'neutral', dataType };
+    let highestScore = 0;
+    
+    Object.entries(patterns).forEach(([type, pattern]) => {
+        const score = pattern.keywords.reduce((acc, keyword) => {
+            return acc + (headerLower.includes(keyword) ? 1 : 0);
+        }, 0);
+        
+        if (score > highestScore) {
+            highestScore = score;
+            bestMatch = { type, sentiment: pattern.sentiment, dataType };
+        }
+    });
+    
+    return bestMatch;
+}
+
+function determineDataType(sampleValues) {
+    if (sampleValues.length === 0) return 'text';
+    
+    // Check if all values are numbers
+    const allNumbers = sampleValues.every(val => !isNaN(parseFloat(val)) && isFinite(val));
+    if (allNumbers) return 'numeric';
+    
+    // Check if values look like ratings/scales
+    const ratingPattern = /^[1-5]$|^[1-9]\/10$|strongly|agree|disagree|excellent|good|fair|poor/i;
+    const hasRatings = sampleValues.some(val => ratingPattern.test(val));
+    if (hasRatings) return 'rating';
+    
+    // Check for yes/no responses
+    const yesNoPattern = /^(yes|no|y|n|true|false)$/i;
+    const hasYesNo = sampleValues.every(val => yesNoPattern.test(val));
+    if (hasYesNo) return 'boolean';
+    
+    // Check for short vs long text
+    const avgLength = sampleValues.reduce((acc, val) => acc + val.length, 0) / sampleValues.length;
+    return avgLength > 50 ? 'longtext' : 'text';
+}
+
+function getSampleData(header, data) {
+    return data.slice(0, 3)
+        .map(row => row[header])
+        .filter(val => val && val.trim())
+        .slice(0, 2);
+}
+
+function generateSuggestedPages(categories, data) {
+    const pages = [];
+    
+    // Always include response overview
+    pages.push({
+        title: "Response Overview",
+        type: "overview",
+        description: `${data.data.length} responses collected`,
+        questions: []
+    });
+    
+    // Create pages based on question categories
+    Object.entries(categories).forEach(([categoryType, questions]) => {
+        if (questions.length === 0) return;
+        
+        const pageConfig = getPageConfigForCategory(categoryType, questions);
+        if (pageConfig) {
+            pages.push({
+                ...pageConfig,
+                questions: questions.map(q => q.question)
+            });
+        }
+    });
+    
+    // Ensure we have at least 3 pages but not more than 6
+    while (pages.length < 3 && pages.length < 6) {
+        // Add general insights page if we have text responses
+        const textQuestions = Object.values(categories).flat()
+            .filter(q => q.dataType === 'longtext' || q.dataType === 'text');
+        
+        if (textQuestions.length > 0 && !pages.find(p => p.type === 'insights')) {
+            pages.push({
+                title: "Key Insights",
+                type: "insights",
+                description: "Important themes from text responses",
+                questions: textQuestions.slice(0, 5).map(q => q.question)
+            });
+        } else {
+            break;
+        }
+    }
+    
+    return pages.slice(0, 6); // Maximum 6 pages
+}
+
+function getPageConfigForCategory(categoryType, questions) {
+    const configs = {
+        rating: {
+            title: "Ratings & Scores",
+            type: "ratings",
+            description: "Numerical ratings and satisfaction scores"
+        },
+        positive: {
+            title: "Positive Feedback",
+            type: "positive",
+            description: "What's working well and positive comments"
+        },
+        negative: {
+            title: "Areas for Improvement",
+            type: "improvement",
+            description: "Challenges and areas needing attention"
+        },
+        suggestion: {
+            title: "Suggestions & Ideas",
+            type: "suggestions",
+            description: "Recommendations and feature requests"
+        },
+        general: {
+            title: "General Feedback",
+            type: "general",
+            description: "Additional comments and observations"
+        }
+    };
+    
+    return configs[categoryType] || null;
+}
+
+function showSurveyPreview(analysis) {
+    const customizationSection = document.getElementById('customizationSection');
+    customizationSection.style.display = 'block';
+    
+    // Update the customization section with dynamic content
+    customizationSection.innerHTML = `
+        <h3 class="customization-title">📊 Survey Analysis</h3>
+        <div class="analysis-preview">
+            <div class="survey-info">
+                <div class="info-item">
+                    <strong>Survey Type:</strong> ${analysis.surveyType}
+                </div>
+                <div class="info-item">
+                    <strong>Response Count:</strong> ${analysis.responseCount}
+                </div>
+                <div class="info-item">
+                    <strong>Question Categories:</strong> ${Object.keys(analysis.questionCategories).join(', ')}
+                </div>
+            </div>
+            
+            <h4>📋 Suggested Presentation Pages:</h4>
+            <div class="suggested-pages">
+                ${analysis.suggestedPages.map((page, index) => `
+                    <div class="page-preview">
+                        <div class="page-header">
+                            <strong>Slide ${index + 1}: ${page.title}</strong>
+                        </div>
+                        <div class="page-description">${page.description}</div>
+                        <div class="page-questions">
+                            ${page.questions.length > 0 ? 
+                                `<small>Based on: ${page.questions.slice(0, 2).join(', ')}${page.questions.length > 2 ? '...' : ''}</small>` 
+                                : '<small>Generated content</small>'
+                            }
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            
+            <div class="analysis-actions">
+                <button type="button" onclick="editSurveyAnalysis()" class="edit-btn">✏️ Customize Analysis</button>
+            </div>
+        </div>
+    `;
+    
+    // Store analysis for generation
+    window.currentAnalysis = analysis;
+    
+    // Scroll to show the analysis
+    customizationSection.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+    });
+}
+
+function editSurveyAnalysis() {
+    // Allow manual editing of the analysis if needed
+    alert('Manual editing feature coming soon! For now, the system will auto-generate based on the detected survey structure.');
 }
 
 function parseCSVData(csvText) {
@@ -112,23 +392,285 @@ function generatePresentation() {
 }
 
 function analyzeData(data) {
-    const responseCount = data.data.length;
+    // Use the stored analysis from file upload
+    const analysis = window.currentAnalysis;
+    if (!analysis) {
+        throw new Error('No survey analysis available');
+    }
     
-    // Get custom inputs
-    const customInputs = getCustomInputs();
-    
-    // Smart analysis using both CSV data and custom inputs
-    const analysis = {
-        responseCount: responseCount,
-        collaborationScore: calculateCollaborationScore(data),
-        positives: extractCustomFeedback(data, customInputs.positives, 'positive'),
-        improvements: extractCustomFeedback(data, customInputs.improvements, 'improvement'),
-        immediate: parseCustomActions(customInputs.immediate),
-        longterm: parseCustomActions(customInputs.longterm),
-        purpose: customInputs.purpose
+    // Generate content for each suggested page
+    const presentationData = {
+        responseCount: analysis.responseCount,
+        surveyType: analysis.surveyType,
+        pages: []
     };
     
-    return analysis;
+    analysis.suggestedPages.forEach(page => {
+        const pageData = generatePageContent(page, data, analysis.questionCategories);
+        presentationData.pages.push(pageData);
+    });
+    
+    return presentationData;
+}
+
+function generatePageContent(page, data, categories) {
+    switch (page.type) {
+        case 'overview':
+            return generateOverviewPage(data, categories);
+        case 'ratings':
+            return generateRatingsPage(page, data, categories);
+        case 'positive':
+            return generateFeedbackPage(page, data, categories, 'positive');
+        case 'improvement':
+            return generateFeedbackPage(page, data, categories, 'negative');
+        case 'suggestions':
+            return generateFeedbackPage(page, data, categories, 'suggestion');
+        case 'insights':
+            return generateInsightsPage(page, data, categories);
+        default:
+            return generateGeneralPage(page, data, categories);
+    }
+}
+
+function generateOverviewPage(data, categories) {
+    const stats = [];
+    
+    // Calculate key metrics
+    const responseCount = data.data.length;
+    stats.push({
+        title: "Total Responses",
+        value: responseCount,
+        description: "Survey participants"
+    });
+    
+    // Count question types
+    const questionTypes = Object.keys(categories);
+    stats.push({
+        title: "Question Categories",
+        value: questionTypes.length,
+        description: questionTypes.join(', ')
+    });
+    
+    // Find completion rate if possible
+    const completionRate = calculateCompletionRate(data);
+    if (completionRate !== null) {
+        stats.push({
+            title: "Completion Rate",
+            value: `${completionRate}%`,
+            description: "Responses completed"
+        });
+    }
+    
+    return {
+        title: "Survey Overview",
+        type: "overview",
+        content: stats
+    };
+}
+
+function generateRatingsPage(page, data, categories) {
+    const ratingQuestions = categories.rating || [];
+    const content = [];
+    
+    ratingQuestions.forEach(question => {
+        const questionData = question.question;
+        const values = data.data.map(row => row[questionData]).filter(val => val && val.trim());
+        
+        if (values.length > 0) {
+            const average = calculateAverage(values);
+            const distribution = calculateDistribution(values);
+            
+            content.push({
+                title: truncateText(questionData, 40),
+                value: average !== null ? average.toFixed(1) : 'N/A',
+                description: `Based on ${values.length} responses`,
+                distribution: distribution
+            });
+        }
+    });
+    
+    return {
+        title: page.title,
+        type: "ratings",
+        content: content
+    };
+}
+
+function generateFeedbackPage(page, data, categories, sentiment) {
+    const relevantQuestions = categories[sentiment] || [];
+    const content = [];
+    
+    relevantQuestions.forEach(question => {
+        const questionData = question.question;
+        const responses = data.data
+            .map(row => row[questionData])
+            .filter(val => val && val.trim() && val.length > 10);
+        
+        // Extract key themes from responses
+        const themes = extractThemes(responses);
+        themes.forEach(theme => {
+            if (theme.examples.length > 0) {
+                content.push({
+                    title: theme.title,
+                    content: theme.examples[0], // Use first example as main content
+                    count: theme.count
+                });
+            }
+        });
+    });
+    
+    // If no themed content, create generic items
+    if (content.length === 0) {
+        const allResponses = relevantQuestions.flatMap(q => 
+            data.data.map(row => row[q.question]).filter(val => val && val.trim())
+        );
+        
+        allResponses.slice(0, 6).forEach((response, index) => {
+            content.push({
+                title: `Response ${index + 1}`,
+                content: response
+            });
+        });
+    }
+    
+    return {
+        title: page.title,
+        type: "feedback",
+        content: content.slice(0, 6)
+    };
+}
+
+function generateInsightsPage(page, data, categories) {
+    const textQuestions = Object.values(categories).flat()
+        .filter(q => q.dataType === 'longtext' || q.dataType === 'text');
+    
+    const allResponses = textQuestions.flatMap(question => 
+        data.data.map(row => row[question.question]).filter(val => val && val.trim())
+    );
+    
+    const themes = extractThemes(allResponses);
+    const content = themes.slice(0, 6).map(theme => ({
+        title: theme.title,
+        content: `${theme.count} mentions: ${theme.examples[0]}`,
+        count: theme.count
+    }));
+    
+    return {
+        title: page.title,
+        type: "insights",
+        content: content
+    };
+}
+
+function generateGeneralPage(page, data, categories) {
+    const content = page.questions.map(questionText => {
+        const responses = data.data
+            .map(row => row[questionText])
+            .filter(val => val && val.trim());
+        
+        const summary = summarizeResponses(responses);
+        return {
+            title: truncateText(questionText, 30),
+            content: summary,
+            count: responses.length
+        };
+    });
+    
+    return {
+        title: page.title,
+        type: "general",
+        content: content
+    };
+}
+
+// Helper functions
+function calculateCompletionRate(data) {
+    const totalQuestions = data.headers.length;
+    const completedResponses = data.data.filter(row => {
+        const filledFields = Object.values(row).filter(val => val && val.trim()).length;
+        return filledFields / totalQuestions > 0.7; // 70% completion threshold
+    });
+    
+    return totalQuestions > 0 ? Math.round((completedResponses.length / data.data.length) * 100) : null;
+}
+
+function calculateAverage(values) {
+    const numbers = values.map(val => {
+        const num = parseFloat(val);
+        return isNaN(num) ? null : num;
+    }).filter(num => num !== null);
+    
+    return numbers.length > 0 ? numbers.reduce((a, b) => a + b, 0) / numbers.length : null;
+}
+
+function calculateDistribution(values) {
+    const counts = {};
+    values.forEach(val => {
+        counts[val] = (counts[val] || 0) + 1;
+    });
+    return counts;
+}
+
+function extractThemes(responses) {
+    if (responses.length === 0) return [];
+    
+    // Simple keyword-based theme extraction
+    const wordFreq = {};
+    const themes = [];
+    
+    responses.forEach(response => {
+        const words = response.toLowerCase()
+            .replace(/[^\w\s]/g, ' ')
+            .split(/\s+/)
+            .filter(word => word.length > 3 && !isStopWord(word));
+        
+        words.forEach(word => {
+            wordFreq[word] = (wordFreq[word] || 0) + 1;
+        });
+    });
+    
+    // Find common themes
+    const sortedWords = Object.entries(wordFreq)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10);
+    
+    sortedWords.forEach(([word, count]) => {
+        if (count > 1) {
+            const examples = responses.filter(r => 
+                r.toLowerCase().includes(word)
+            ).slice(0, 3);
+            
+            themes.push({
+                title: capitalizeFirst(word),
+                count: count,
+                examples: examples
+            });
+        }
+    });
+    
+    return themes;
+}
+
+function isStopWord(word) {
+    const stopWords = ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'who', 'boy', 'did', 'man', 'men', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'oil', 'sit', 'set'];
+    return stopWords.includes(word);
+}
+
+function summarizeResponses(responses) {
+    if (responses.length === 0) return 'No responses';
+    if (responses.length === 1) return responses[0];
+    
+    // For multiple responses, find the most common patterns
+    const shortResponses = responses.filter(r => r.length < 100);
+    if (shortResponses.length > 0) {
+        return shortResponses[0]; // Return first short response as summary
+    }
+    
+    return responses[0].substring(0, 100) + '...';
+}
+
+function truncateText(text, maxLength) {
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 }
 
 function getCustomInputs() {
