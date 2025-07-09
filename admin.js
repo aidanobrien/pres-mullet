@@ -376,14 +376,31 @@ function generatePresentation() {
         // Analyze the data and create presentation content
         presentationData = analyzeData(surveyData);
         
-        // Generate shareable link with compressed data
+        // Generate shareable link with optimized compression
         const compressedData = compressData(presentationData);
         const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', 'index.html');
         const shareLink = `${baseUrl}?d=${compressedData}`;
         
+        // Check URL length and warn if it might be problematic
+        if (shareLink.length > 2000) {
+            console.warn('Generated URL is quite long:', shareLink.length, 'characters');
+        }
+        
         // Show share section
         document.getElementById('shareSection').style.display = 'block';
-        document.getElementById('shareLink').textContent = shareLink;
+        document.getElementById('shareSection').innerHTML = `
+            <h3 class="share-title">🎉 Presentation Ready!</h3>
+            <div class="share-link" id="shareLink">${shareLink}</div>
+            <div class="share-actions">
+                <button class="copy-btn" onclick="copyShareLink()">📋 Copy Link</button>
+                <button class="preview-btn" onclick="previewPresentation()">👀 Preview</button>
+                <button class="reset-btn" onclick="resetAdmin()">🔄 Reset</button>
+            </div>
+            ${shareLink.length > 2000 ? 
+                '<div class="url-warning">⚠️ This URL is quite long. Some email clients may truncate it. Consider using a URL shortener.</div>' : 
+                ''
+            }
+        `;
         
     } catch (error) {
         alert('Error generating presentation. Please check your CSV data and try again.');
@@ -967,9 +984,110 @@ function extractTitle(text) {
 }
 
 function compressData(data) {
-    // Compress the data for URL sharing
-    const jsonString = JSON.stringify(data);
-    return btoa(encodeURIComponent(jsonString));
+    try {
+        // First, optimize the data by removing unnecessary fields and truncating long text
+        const optimizedData = optimizeDataForURL(data);
+        
+        // Convert to JSON and compress
+        const jsonString = JSON.stringify(optimizedData);
+        
+        // Check if the data is too large for URL
+        if (jsonString.length > 2000) { // Conservative limit
+            // Use a more aggressive optimization for large datasets
+            const compactData = createCompactVersion(data);
+            const compactJson = JSON.stringify(compactData);
+            
+            if (compactJson.length > 2000) {
+                // Still too large, use localStorage as fallback
+                return saveToLocalStorage(data);
+            }
+            
+            return btoa(encodeURIComponent(compactJson));
+        }
+        
+        return btoa(encodeURIComponent(jsonString));
+    } catch (error) {
+        console.error('Error compressing data:', error);
+        throw new Error('Failed to compress presentation data');
+    }
+}
+
+function optimizeDataForURL(data) {
+    const optimized = {
+        responseCount: data.responseCount,
+        surveyType: data.surveyType,
+        pages: []
+    };
+    
+    if (data.pages && Array.isArray(data.pages)) {
+        optimized.pages = data.pages.map(page => ({
+            title: truncateText(page.title, 50),
+            type: page.type,
+            content: optimizePageContent(page.content, page.type)
+        }));
+    }
+    
+    return optimized;
+}
+
+function optimizePageContent(content, pageType) {
+    if (!Array.isArray(content)) return content;
+    
+    // Limit number of items and truncate text
+    return content.slice(0, 6).map(item => {
+        if (typeof item === 'object') {
+            return {
+                title: truncateText(item.title, 40),
+                content: truncateText(item.content, 150),
+                ...(item.value && { value: item.value }),
+                ...(item.count && { count: item.count })
+            };
+        }
+        return truncateText(item.toString(), 100);
+    });
+}
+
+function createCompactVersion(data) {
+    // Create a very minimal version for large datasets
+    return {
+        rc: data.responseCount, // responseCount
+        st: truncateText(data.surveyType, 30), // surveyType
+        p: (data.pages || []).slice(0, 4).map(page => ({ // pages (max 4)
+            t: truncateText(page.title, 30), // title
+            ty: page.type, // type
+            c: (page.content || []).slice(0, 4).map(item => ({ // content (max 4 items)
+                t: truncateText(item.title, 25), // title
+                c: truncateText(item.content, 80) // content
+            }))
+        }))
+    };
+}
+
+function saveToLocalStorage(data) {
+    // Generate a unique ID for this presentation
+    const presentationId = 'pres_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    try {
+        // Save to localStorage
+        localStorage.setItem(presentationId, JSON.stringify(data));
+        
+        // Return the ID instead of the full data
+        return btoa(JSON.stringify({ 
+            type: 'localStorage', 
+            id: presentationId,
+            fallback: createCompactVersion(data) // Fallback for browsers without localStorage
+        }));
+    } catch (error) {
+        console.error('LocalStorage save failed:', error);
+        // Final fallback - just use the compact version
+        return btoa(encodeURIComponent(JSON.stringify(createCompactVersion(data))));
+    }
+}
+
+function truncateText(text, maxLength) {
+    if (!text) return '';
+    const str = text.toString();
+    return str.length > maxLength ? str.substring(0, maxLength) + '...' : str;
 }
 
 function copyShareLink() {

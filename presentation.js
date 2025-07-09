@@ -246,11 +246,57 @@ function escapeHtml(text) {
 function decompressData(compressedData) {
     try {
         const decodedString = decodeURIComponent(atob(compressedData));
-        return JSON.parse(decodedString);
+        const parsed = JSON.parse(decodedString);
+        
+        // Check if this is a localStorage reference
+        if (parsed.type === 'localStorage' && parsed.id) {
+            return loadFromLocalStorage(parsed.id, parsed.fallback);
+        }
+        
+        // Check if this is compact format and expand it
+        if (parsed.rc !== undefined) { // Compact format detection
+            return expandCompactData(parsed);
+        }
+        
+        return parsed;
     } catch (error) {
         console.error('Error decompressing data:', error);
         throw new Error('Invalid presentation data');
     }
+}
+
+function loadFromLocalStorage(presentationId, fallback) {
+    try {
+        const stored = localStorage.getItem(presentationId);
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch (error) {
+        console.error('Failed to load from localStorage:', error);
+    }
+    
+    // Use fallback if localStorage fails
+    if (fallback) {
+        return expandCompactData(fallback);
+    }
+    
+    throw new Error('Presentation data not found');
+}
+
+function expandCompactData(compactData) {
+    // Expand the compact format back to full format
+    return {
+        responseCount: compactData.rc || 0,
+        surveyType: compactData.st || 'Survey',
+        pages: (compactData.p || []).map(page => ({
+            title: page.t || 'Analysis',
+            type: page.ty || 'general',
+            content: (page.c || []).map(item => ({
+                title: item.t || 'Item',
+                content: item.c || 'No content available'
+            }))
+        }))
+    };
 }
 
 function showError(message) {
