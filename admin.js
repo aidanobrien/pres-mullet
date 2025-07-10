@@ -31,6 +31,9 @@ function handleFileUpload(event) {
             
             // Show context section
             document.getElementById('surveyContextSection').style.display = 'block';
+
+            // Show density section
+            document.getElementById('contentDensitySection').style.display = 'block';
             
             // Update upload area
             const uploadArea = document.getElementById('uploadArea');
@@ -179,7 +182,7 @@ async function testApiConnection(apiKey) {
     }
 }
 
-// Generate Presentation - SIMPLE VERSION
+// Generate Presentation
 async function generatePresentation() {
     if (!surveyData || !window.claudeApiReady) return;
 
@@ -269,10 +272,6 @@ async function createSimplePresentation(data, surveyContext) {
     return presentationStructure;
 }
 
-async function askClaudeForPresentationStructure(responses, context, responseCount) {
-    const apiEndpoint = getApiEndpoint();
-    const analyzeUrl = apiEndpoint.includes('netlify') ? apiEndpoint : `${apiEndpoint}/claude`;
-    
 async function askClaudeForPresentationStructure(responses, context, responseCount) {
     const apiEndpoint = getApiEndpoint();
     const analyzeUrl = apiEndpoint.includes('netlify') ? apiEndpoint : `${apiEndpoint}/claude`;
@@ -386,7 +385,7 @@ CRITICAL RULES:
             body: JSON.stringify({
                 apiKey: localStorage.getItem('claude_api_key'),
                 prompt: prompt,
-                maxTokens: 4000, // Increased token limit for more comprehensive analysis
+                maxTokens: 4000,
                 action: 'analyze'
             })
         });
@@ -403,7 +402,7 @@ CRITICAL RULES:
     } catch (error) {
         console.error('Claude API error:', error);
         
-        // Fallback structure with more comprehensive analysis
+        // Fallback structure
         return {
             surveyType: 'Team Feedback Survey',
             responseCount: responseCount,
@@ -422,22 +421,6 @@ CRITICAL RULES:
                         {"title": "Main Theme", "content": `Primary pattern identified across ${responseCount} responses`},
                         {"title": "Common Feedback", "content": "Recurring themes in the survey data"},
                         {"title": "Notable Insights", "content": "Key observations from participant responses"}
-                    ]
-                },
-                {
-                    title: "Positive Feedback",
-                    type: "feedback",
-                    content: [
-                        {"title": "Strengths", "content": "Areas where participants expressed satisfaction"},
-                        {"title": "Success Areas", "content": "What's working well according to responses"}
-                    ]
-                },
-                {
-                    title: "Improvement Areas",
-                    type: "feedback",
-                    content: [
-                        {"title": "Opportunities", "content": "Areas identified for enhancement"},
-                        {"title": "Challenges", "content": "Common concerns raised by participants"}
                     ]
                 },
                 {
@@ -477,6 +460,7 @@ function resetAdmin() {
     document.getElementById('generateBtn').disabled = true;
     document.getElementById('shareSection').style.display = 'none';
     document.getElementById('surveyContextSection').style.display = 'none';
+    document.getElementById('contentDensitySection').style.display = 'none';
     
     const uploadArea = document.getElementById('uploadArea');
     uploadArea.innerHTML = `
