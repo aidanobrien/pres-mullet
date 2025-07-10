@@ -249,19 +249,20 @@ Create a 4-5 slide presentation structure. Return ONLY this JSON format:
   "responseCount": ${responseCount},
   "pages": [
     {
-      "title": "Overview", 
+      "title": "Survey Overview", 
       "type": "overview",
       "content": [
         {"title": "Total Responses", "value": "${responseCount}", "description": "Survey participants"},
-        {"title": "Key Metric", "value": "X%", "description": "Main finding"}
+        {"title": "Key Finding", "value": "X%", "description": "Main insight from responses"}
       ]
     },
     {
       "title": "Main Findings",
       "type": "feedback", 
       "content": [
-        {"title": "Key Theme 1", "content": "Analysis of what people said"},
-        {"title": "Key Theme 2", "content": "Another insight"}
+        {"title": "Key Theme 1", "content": "Detailed analysis with multiple examples of what people said"},
+        {"title": "Key Theme 2", "content": "Another insight with specific examples"},
+        {"title": "Key Theme 3", "content": "Third major theme with examples"}
       ]
     }
   ]
@@ -269,10 +270,12 @@ Create a 4-5 slide presentation structure. Return ONLY this JSON format:
 
 Requirements:
 - Create 4-5 meaningful slides based on the actual survey responses
-- First slide should always be "Overview" with response count
+- First slide should be "Survey Overview" with response count and ONE key metric
 - Other slides should analyze real themes from the responses
 - Each content item needs "title" and "content" fields
-- Make insights specific to what people actually said
+- Provide 4-6 insights per slide, not just 1-2
+- Make content detailed with specific examples of what people actually said
+- Include multiple examples in each insight where possible
 - Return ONLY the JSON, no other text`;
 
     try {
@@ -282,7 +285,7 @@ Requirements:
             body: JSON.stringify({
                 apiKey: localStorage.getItem('claude_api_key'),
                 prompt: prompt,
-                maxTokens: 2000,
+                maxTokens: 3000,
                 action: 'analyze'
             })
         });
@@ -305,7 +308,7 @@ Requirements:
             responseCount: responseCount,
             pages: [
                 {
-                    title: "Overview",
+                    title: "Survey Overview",
                     type: "overview", 
                     content: [
                         {"title": "Total Responses", "value": responseCount.toString(), "description": "Survey participants"}
@@ -315,7 +318,7 @@ Requirements:
                     title: "Key Feedback",
                     type: "feedback",
                     content: [
-                        {"title": "Analysis", "content": `Analysis of ${responseCount} survey responses. ${responses.slice(0, 3).join('. ')}`}
+                        {"title": "Main Themes", "content": `Analysis of ${responseCount} survey responses: ${responses.slice(0, 3).join('. ')}`}
                     ]
                 }
             ]
