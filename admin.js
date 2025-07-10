@@ -31,9 +31,6 @@ function handleFileUpload(event) {
             
             // Show context section
             document.getElementById('surveyContextSection').style.display = 'block';
-
-            // Show density section
-            document.getElementById('contentDensitySection').style.display = 'block';
             
             // Update upload area
             const uploadArea = document.getElementById('uploadArea');
@@ -276,6 +273,10 @@ async function askClaudeForPresentationStructure(responses, context, responseCou
     const apiEndpoint = getApiEndpoint();
     const analyzeUrl = apiEndpoint.includes('netlify') ? apiEndpoint : `${apiEndpoint}/claude`;
     
+async function askClaudeForPresentationStructure(responses, context, responseCount) {
+    const apiEndpoint = getApiEndpoint();
+    const analyzeUrl = apiEndpoint.includes('netlify') ? apiEndpoint : `${apiEndpoint}/claude`;
+    
     // Get content density instructions
     const densityInstructions = {
         'brief': 'Keep content very concise - 1-2 sentences per insight. Focus on key points only.',
@@ -283,29 +284,34 @@ async function askClaudeForPresentationStructure(responses, context, responseCou
         'detailed': 'Provide comprehensive analysis - 3-4 sentences per insight with multiple examples and quotes.'
     };
     
-    const prompt = `STOP! You must analyze the REAL survey responses below. Do NOT write generic descriptions.
+    const prompt = `You are analyzing REAL survey data. You must read every response and create RELEVANT pages based on what you actually find.
 
 CONTENT DENSITY: ${densityInstructions[selectedDensity]}
 
-I'm giving you actual survey data to analyze. You must read each response and extract REAL themes, quotes, and insights.
-
 Survey Context: "${context}"
 
-HERE ARE THE ACTUAL RESPONSES TO ANALYZE:
-${responses.slice(0, 50).map((response, index) => `Response ${index + 1}: "${response}"`).join('\n')}
+ACTUAL SURVEY RESPONSES TO ANALYZE:
+${responses.slice(0, 50).map((response, index) => `"${response}"`).join('\n')}
 
-TASK: Read every response above. Find real patterns. Extract actual quotes. Identify genuine themes.
+INSTRUCTIONS:
+1. Read ALL the responses above carefully
+2. Identify what type of survey this is based on the responses and context
+3. Create page titles that make sense for THIS specific survey
+4. Extract REAL quotes and patterns from the actual responses
+5. Do NOT use generic analysis language
 
-For example, if someone wrote "Communication is terrible, nobody tells us anything", you would put that as actual content, not "communication challenges identified".
+Based on what you find in the responses, create 4-5 relevant analysis pages. The page titles should match what you actually discovered.
 
-If multiple people mention meetings, you would say "Several respondents mentioned meeting issues" and quote examples.
+For example:
+- If it's about team collaboration → "Communication Gaps", "Team Strengths", "Process Issues"
+- If it's about product feedback → "Feature Requests", "User Pain Points", "What Users Love"
+- If it's about employee satisfaction → "Job Satisfaction", "Management Feedback", "Workplace Culture"
+- If it's about training → "Learning Gaps", "Training Effectiveness", "Resource Needs"
 
-If people praise teamwork, you would quote what they actually said about teamwork.
-
-Return this JSON with REAL analysis of the responses above:
+Return this JSON with REAL analysis and RELEVANT page titles:
 
 {
-  "surveyType": "Survey Results",
+  "surveyType": "Brief descriptive title based on the responses",
   "responseCount": ${responseCount},
   "pages": [
     {
@@ -316,43 +322,43 @@ Return this JSON with REAL analysis of the responses above:
       ]
     },
     {
-      "title": "Main Themes",
+      "title": "RELEVANT PAGE TITLE based on what you found",
       "type": "feedback", 
       "content": [
-        {"title": "Theme 1", "content": "Write what you actually found in the responses - quote specific examples"},
-        {"title": "Theme 2", "content": "Another real theme with actual quotes from responses"},
-        {"title": "Theme 3", "content": "Third theme with real examples from the data"},
-        {"title": "Theme 4", "content": "Fourth theme with actual response content"}
+        {"title": "Specific finding", "content": "Actual insight with real quotes from responses"},
+        {"title": "Another finding", "content": "Real pattern with examples from actual responses"},
+        {"title": "Third finding", "content": "Genuine insight with quotes from the data"},
+        {"title": "Fourth finding", "content": "Real observation with specific examples"}
       ]
     },
     {
-      "title": "Positive Feedback",
+      "title": "ANOTHER RELEVANT PAGE TITLE based on your analysis",
       "type": "feedback",
       "content": [
-        {"title": "What People Like", "content": "Quote actual positive things people said"},
-        {"title": "Strengths Mentioned", "content": "Real positive feedback from responses"},
-        {"title": "Success Examples", "content": "Actual examples of what's working well"},
-        {"title": "Appreciated Aspects", "content": "Things people specifically praised"}
+        {"title": "Real insight", "content": "Actual content from responses with quotes"},
+        {"title": "Pattern found", "content": "Real theme with specific examples"},
+        {"title": "Key observation", "content": "Genuine finding with response quotes"},
+        {"title": "Important point", "content": "Real insight with actual examples"}
       ]
     },
     {
-      "title": "Issues & Concerns", 
+      "title": "THIRD RELEVANT PAGE TITLE based on what responses show",
       "type": "feedback",
       "content": [
-        {"title": "Main Problems", "content": "Actual problems people mentioned with quotes"},
-        {"title": "Common Complaints", "content": "Real issues that came up multiple times"},
-        {"title": "Frustrations", "content": "Things people are frustrated about"},
-        {"title": "Needs Improvement", "content": "Areas people said need work"}
+        {"title": "Main point", "content": "Real finding with actual quotes"},
+        {"title": "Key theme", "content": "Genuine pattern with examples"},
+        {"title": "Notable insight", "content": "Actual observation with quotes"},
+        {"title": "Critical finding", "content": "Real content from responses"}
       ]
     },
     {
-      "title": "Key Insights",
+      "title": "FOURTH RELEVANT PAGE TITLE based on analysis",
       "type": "feedback",
       "content": [
-        {"title": "Most Important Finding", "content": "The biggest insight from reading all responses"},
-        {"title": "Surprising Discovery", "content": "Something unexpected you found in the data"},
-        {"title": "Clear Pattern", "content": "An obvious pattern across multiple responses"},
-        {"title": "Action Needed", "content": "What clearly needs to be done based on responses"}
+        {"title": "Final insight", "content": "Real conclusion with quotes"},
+        {"title": "Action needed", "content": "Actual recommendation based on responses"},
+        {"title": "Key takeaway", "content": "Genuine finding with examples"},
+        {"title": "Summary point", "content": "Real insight from the data"}
       ]
     },
     {
@@ -363,14 +369,15 @@ Return this JSON with REAL analysis of the responses above:
   ]
 }
 
-RULES:
-- Quote actual things people wrote
-- Don't say "participants expressed" - say what they actually expressed
-- Don't say "areas identified" - say what the actual areas are
-- Use real words from real responses
-- If someone says "meetings are too long", write that, don't say "meeting duration concerns"
-- Be specific and use actual content from the responses above
-- Follow the content density requirement: ${densityInstructions[selectedDensity]}`;
+CRITICAL RULES:
+- Page titles must be relevant to what you actually found in the responses
+- Content must include real quotes and specific examples from the responses
+- Do NOT write "Several respondents mentioned" - write what they actually said
+- Do NOT write "Areas identified" - write the actual areas
+- Do NOT write "Themes emerged" - write the actual themes
+- Quote actual words and phrases from the responses
+- Make every insight actionable and specific
+- Base everything on the real data above`;
 
     try {
         const response = await fetch(analyzeUrl, {
