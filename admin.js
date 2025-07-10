@@ -340,22 +340,22 @@ function previewStructure() {
     alert('Presentation Structure:\n\n' + preview);
 }
 
-function generatePresentation() {
+async function generatePresentation() {
     if (!surveyData) return;
 
     try {
-        // Analyze the data and create presentation content
-        presentationData = analyzeData(surveyData);
+        // Show loading
+        const generateBtn = document.getElementById('generateBtn');
+        generateBtn.disabled = true;
+        generateBtn.textContent = 'Generating...';
+        
+        // WAIT for the analysis to complete
+        presentationData = await analyzeDataAsync(surveyData);
         
         // Generate shareable link with optimized compression
         const compressedData = compressData(presentationData);
         const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', 'index.html');
         const shareLink = `${baseUrl}?d=${compressedData}`;
-        
-        // Check URL length and warn if it might be problematic
-        if (shareLink.length > 2000) {
-            console.warn('Generated URL is quite long:', shareLink.length, 'characters');
-        }
         
         // Show share section
         document.getElementById('shareSection').style.display = 'block';
@@ -373,9 +373,137 @@ function generatePresentation() {
             }
         `;
         
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Generate Presentation';
+        
     } catch (error) {
-        alert('Error generating presentation. Please check your CSV data and try again.');
+        alert('Error generating presentation: ' + error.message);
         console.error('Generation error:', error);
+        
+        const generateBtn = document.getElementById('generateBtn');
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Generate Presentation';
+    }
+}
+
+async function analyzeDataAsync(data) {
+    const pages = window.presentationPages || [];
+    
+    if (pages.length === 0) {
+        throw new Error('No presentation pages defined');
+    }
+    
+    console.log(`Analyzing data for ${pages.length} pages...`);
+    
+    const presentationData = {
+        responseCount: data.data.length,
+        surveyType: 'Survey Results',
+        pages: []
+    };
+    
+    // Process each page and WAIT for Claude API
+    for (let i = 0; i < pages.length; i++) {
+        const pageConfig = pages[i];
+        console.log(`Processing page ${i + 1}: ${pageConfig.title}`);
+        
+        const pageData = await generatePageContentAsync(pageConfig, data);
+        presentationData.pages.push(pageData);
+        
+        console.log(`Page ${i + 1} completed:`, pageData);
+    }
+    
+    console.log('Final presentation data:', presentationData);
+    return presentationData;
+}
+
+async function generatePageContentAsync(pageConfig, data) {
+    const { title, type, instruction } = pageConfig;
+    
+    console.log(`Generating content for: ${title} (${type})`);
+    
+    if (type === 'overview') {
+        return {
+            title: title,
+            type: "overview",
+            content: [
+                {
+                    title: "Total Responses",
+                    value: data.data.length,
+                    description: "Survey participants"
+                }
+            ]
+        };
+    }
+    
+    // Get ALL text responses from ALL columns
+    const allResponses = [];
+    
+    data.headers.forEach(header => {
+        // Skip system columns
+        if (header.toLowerCase().includes('id') || 
+            header.toLowerCase().includes('date') || 
+            header.toLowerCase().includes('time') ||
+            header.startsWith('#')) {
+            return;
+        }
+        
+        // Get responses from this column
+        data.data.forEach(row => {
+            const value = row[header];
+            if (value && value.trim() && value.length > 5) {
+                allResponses.push(value.trim());
+            }
+        });
+    });
+    
+    console.log(`Found ${allResponses.length} total responses for "${title}"`);
+    
+    if (allResponses.length === 0) {
+        return {
+            title: title,
+            type: "feedback",
+            content: [{
+                title: "No Data",
+                content: "No text responses found in the CSV file."
+            }]
+        };
+    }
+    
+    // ACTUALLY WAIT for Claude API
+    if (!window.claudeApiReady) {
+        return {
+            title: title,
+            type: "feedback",
+            content: [{
+                title: "API Not Ready",
+                content: "Claude API not configured. Please set up your API key."
+            }]
+        };
+    }
+    
+    try {
+        console.log(`Calling Claude API for "${title}" with ${allResponses.length} responses`);
+        
+        const analysis = await analyzeWithClaude(allResponses, instruction, title);
+        console.log('Claude returned:', analysis);
+        
+        return {
+            title: title,
+            type: "feedback",
+            content: analysis
+        };
+        
+    } catch (error) {
+        console.error('Claude API error:', error);
+        
+        return {
+            title: title,
+            type: "feedback", 
+            content: [{
+                title: "Analysis Failed",
+                content: `Error: ${error.message}. Showing sample responses: ${allResponses.slice(0, 2).join('. ')}`
+            }]
+        };
     }
 }
 
