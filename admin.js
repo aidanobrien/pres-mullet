@@ -243,14 +243,16 @@ async function askClaudeForPresentationStructure(responses, context, responseCou
     const apiEndpoint = getApiEndpoint();
     const analyzeUrl = apiEndpoint.includes('netlify') ? apiEndpoint : `${apiEndpoint}/claude`;
     
-    const prompt = `You are an expert survey analyst. Analyze the survey responses thoroughly and create a comprehensive presentation with MULTIPLE analysis pages.
+    const prompt = `You are an expert survey analyst. You must analyze the ACTUAL survey responses below and extract REAL insights, themes, and patterns from the data. Do not use generic placeholder text.
 
 Survey Context: "${context}"
 
-Survey Responses (${responseCount} total):
-${responses.slice(0, 30).map((response, index) => `${index + 1}. "${response}"`).join('\n')}
+ACTUAL Survey Responses (${responseCount} total):
+${responses.slice(0, 50).map((response, index) => `${index + 1}. "${response}"`).join('\n')}
 
-You MUST create exactly 5 analysis pages plus overview and thank you. Return this EXACT JSON structure:
+Read these responses carefully and identify REAL patterns, themes, and insights. Extract ACTUAL quotes and examples. Create a comprehensive presentation with REAL analysis of this data.
+
+Return this EXACT JSON structure with REAL content analysis:
 
 {
   "surveyType": "Brief catchy title (3-4 words)",
@@ -267,50 +269,50 @@ You MUST create exactly 5 analysis pages plus overview and thank you. Return thi
       "title": "Key Themes & Patterns",
       "type": "feedback", 
       "content": [
-        {"title": "Most Frequent Theme", "content": "Identify the most common theme with specific examples"},
-        {"title": "Secondary Pattern", "content": "Second most common pattern with examples"},
-        {"title": "Emerging Trend", "content": "Notable trend or pattern with examples"},
-        {"title": "Unexpected Finding", "content": "Surprising insight from the data"}
+        {"title": "Most Frequent Theme", "content": "ACTUAL theme you identified from the responses with specific examples or quotes"},
+        {"title": "Secondary Pattern", "content": "REAL second pattern with actual examples from the data"},
+        {"title": "Emerging Trend", "content": "ACTUAL trend with specific examples from responses"},
+        {"title": "Notable Finding", "content": "REAL insight with examples from the actual responses"}
       ]
     },
     {
       "title": "Positive Highlights",
       "type": "feedback",
       "content": [
-        {"title": "Top Strength", "content": "Most praised aspect with quotes/examples"},
-        {"title": "Success Story", "content": "What people appreciate most"},
-        {"title": "Working Well", "content": "Things that are clearly functioning"},
-        {"title": "Team Wins", "content": "Positive feedback and achievements"}
+        {"title": "Top Strength", "content": "ACTUAL positive feedback from responses with examples"},
+        {"title": "Success Story", "content": "REAL positive themes with specific examples"},
+        {"title": "Working Well", "content": "ACTUAL things mentioned as working well"},
+        {"title": "Team Wins", "content": "REAL positive feedback and achievements mentioned"}
       ]
     },
     {
       "title": "Challenges & Pain Points",
       "type": "feedback",
       "content": [
-        {"title": "Primary Challenge", "content": "Main issue identified with examples"},
-        {"title": "Common Frustration", "content": "Frequent complaint or concern"},
-        {"title": "Blocking Issue", "content": "What's preventing progress"},
-        {"title": "Improvement Need", "content": "Clear area needing attention"}
+        {"title": "Primary Challenge", "content": "ACTUAL main issue identified from responses with examples"},
+        {"title": "Common Frustration", "content": "REAL frequent complaint from the data"},
+        {"title": "Blocking Issue", "content": "ACTUAL problem mentioned in responses"},
+        {"title": "Improvement Need", "content": "REAL area needing attention based on responses"}
       ]
     },
     {
       "title": "Sentiment Analysis",
       "type": "feedback",
       "content": [
-        {"title": "Overall Mood", "content": "General sentiment across responses"},
-        {"title": "Satisfaction Level", "content": "How satisfied people seem overall"},
-        {"title": "Engagement Indicators", "content": "Signs of engagement or disengagement"},
-        {"title": "Emotional Themes", "content": "Emotional patterns in responses"}
+        {"title": "Overall Mood", "content": "ACTUAL sentiment you detected from reading the responses"},
+        {"title": "Satisfaction Level", "content": "REAL satisfaction indicators from the data"},
+        {"title": "Engagement Indicators", "content": "ACTUAL signs of engagement/disengagement in responses"},
+        {"title": "Emotional Themes", "content": "REAL emotional patterns you found in the responses"}
       ]
     },
     {
       "title": "Action Recommendations",
       "type": "feedback",
       "content": [
-        {"title": "Quick Wins", "content": "Easy improvements to implement immediately"},
-        {"title": "Strategic Priority", "content": "Most important long-term focus area"},
-        {"title": "Process Improvements", "content": "Workflow or process changes suggested"},
-        {"title": "Communication Needs", "content": "Communication improvements needed"}
+        {"title": "Quick Wins", "content": "REAL suggestions based on what people actually said"},
+        {"title": "Strategic Priority", "content": "ACTUAL priority based on the response analysis"},
+        {"title": "Process Improvements", "content": "REAL process changes suggested by the data"},
+        {"title": "Communication Needs", "content": "ACTUAL communication improvements based on responses"}
       ]
     },
     {
@@ -322,12 +324,12 @@ You MUST create exactly 5 analysis pages plus overview and thank you. Return thi
 }
 
 CRITICAL REQUIREMENTS:
-- You MUST include ALL 5 analysis pages exactly as shown above
-- Each page MUST have 4 content items as specified
-- Analyze the actual survey responses thoroughly
-- Use specific examples and quotes from the responses where possible
-- Make insights actionable and valuable for decision makers
-- Look for patterns, themes, sentiment, and opportunities
+- You MUST analyze the ACTUAL survey responses provided above
+- Use REAL quotes, examples, and specific content from the responses
+- Identify ACTUAL patterns and themes from the data
+- Do NOT use generic placeholder text like "Primary pattern identified"
+- Extract REAL insights that someone could act on
+- Base ALL content on the actual responses provided
 - Return ONLY the JSON structure above, nothing else`;
 
     try {
