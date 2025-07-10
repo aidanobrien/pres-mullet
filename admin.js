@@ -984,26 +984,95 @@ function parseClaudeResponse(responseText) {
     }
 }
 
-function createActualSummaries(responses, instruction) {
-    const summaries = [];
-    
-    // Group responses by actual content similarity
-    const contentGroups = groupResponsesByContent(responses);
-    
-    // For each group, create a real summary of what people actually said
-    contentGroups.forEach((group, index) => {
-        if (summaries.length >= 6) return;
+function parseClaudeResponse(responseText) {
+    try {
+        console.log('Raw Claude response:', responseText);
         
-        const summary = summarizeResponseGroup(group);
-        if (summary) {
-            summaries.push({
-                title: summary.title,
-                content: summary.content
-            });
+        // Extract JSON from the response
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            console.log('Parsed JSON:', parsed);
+            
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                // Return the properly formatted analysis
+                return parsed.map(item => ({
+                    title: item.title || 'Analysis Point',
+                    content: item.content || 'No content available'
+                }));
+            }
         }
-    });
-    
-    return summaries;
+        
+        // If JSON parsing fails, try to extract meaningful content
+        if (responseText.includes('"title"') && responseText.includes('"content"')) {
+            // Manually extract title/content pairs
+            const titleMatches = responseText.match(/"title":\s*"([^"]+)"/g);
+            const contentMatches = responseText.match(/"content":\s*"([^"]+)"/g);
+            
+            if (titleMatches && contentMatches) {
+                const results = [];
+                const maxLength = Math.min(titleMatches.length, contentMatches.length);
+                
+                for (let i = 0; i < maxLength; i++) {
+                    const title = titleMatches[i].match(/"title":\s*"([^"]+)"/)[1];
+                    const content = contentMatches[i].match(/"content":\s*"([^"]+)"/)[1];
+                    
+                    results.push({
+                        title: title,
+                        content: content
+                    });
+                }
+                
+                return results;
+            }
+        }
+        
+        // Fallback: return the raw response with better formatting
+        return [{
+            title: "Analysis Summary",
+            content: responseText.replace(/^\[|\]$/g, '').trim()
+        }];
+        
+    } catch (error) {
+        console.error('Error parsing Claude response:', error);
+        
+        // Final fallback
+        return [{
+            title: "Raw Analysis",
+            content: responseText
+        }];
+    }
+}
+
+function createAnalysisPrompt(responses, instruction, pageTitle) {
+    return `You are analyzing survey responses for a presentation slide titled "${pageTitle}".
+
+User instruction: "${instruction}"
+
+Survey responses to analyze:
+${responses.slice(0, 20).map((response, index) => `${index + 1}. "${response}"`).join('\n')}
+
+Please analyze these responses and provide 4-6 key insights in this exact JSON format:
+[
+  {
+    "title": "Clear insight title",
+    "content": "Detailed analysis explaining what respondents said and what it means"
+  },
+  {
+    "title": "Another insight title", 
+    "content": "Another analysis point with actionable details"
+  }
+]
+
+Requirements:
+- Provide 4-6 insights minimum
+- Base analysis ONLY on the actual responses provided
+- Create meaningful titles that summarize each insight
+- Write detailed content that explains what people said and why it matters
+- Make insights specific and actionable
+- Return ONLY the JSON array, no other text
+
+JSON:`;
 }
 
 function groupResponsesByContent(responses) {
