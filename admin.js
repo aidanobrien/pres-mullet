@@ -243,17 +243,17 @@ async function askClaudeForPresentationStructure(responses, context, responseCou
     const apiEndpoint = getApiEndpoint();
     const analyzeUrl = apiEndpoint.includes('netlify') ? apiEndpoint : `${apiEndpoint}/claude`;
     
-    const prompt = `You are an expert survey analyst creating a comprehensive presentation from survey data.
+    const prompt = `You are an expert survey analyst. Analyze the survey responses thoroughly and create a comprehensive presentation with MULTIPLE analysis pages.
 
 Survey Context: "${context}"
 
 Survey Responses (${responseCount} total):
 ${responses.slice(0, 30).map((response, index) => `${index + 1}. "${response}"`).join('\n')}
 
-Analyze these responses and create a comprehensive presentation structure. Return ONLY this JSON format:
+You MUST create exactly 5 analysis pages plus overview and thank you. Return this EXACT JSON structure:
 
 {
-  "surveyType": "Short catchy title (3-5 words max based on context)",
+  "surveyType": "Brief catchy title (3-4 words)",
   "responseCount": ${responseCount},
   "pages": [
     {
@@ -264,40 +264,53 @@ Analyze these responses and create a comprehensive presentation structure. Retur
       ]
     },
     {
-      "title": "Key Themes",
+      "title": "Key Themes & Patterns",
       "type": "feedback", 
       "content": [
-        {"title": "Most Common Theme", "content": "Detailed insight with specific examples from responses"},
-        {"title": "Second Key Theme", "content": "Another insight with examples"},
-        {"title": "Third Important Theme", "content": "Third insight with examples"},
-        {"title": "Emerging Pattern", "content": "Additional insight with examples"}
+        {"title": "Most Frequent Theme", "content": "Identify the most common theme with specific examples"},
+        {"title": "Secondary Pattern", "content": "Second most common pattern with examples"},
+        {"title": "Emerging Trend", "content": "Notable trend or pattern with examples"},
+        {"title": "Unexpected Finding", "content": "Surprising insight from the data"}
       ]
     },
     {
-      "title": "Positive Feedback",
+      "title": "Positive Highlights",
       "type": "feedback",
       "content": [
-        {"title": "What's Working Well", "content": "Specific positive feedback with examples"},
-        {"title": "Strengths Identified", "content": "Another positive aspect with examples"},
-        {"title": "Success Stories", "content": "Examples of what people appreciate"}
+        {"title": "Top Strength", "content": "Most praised aspect with quotes/examples"},
+        {"title": "Success Story", "content": "What people appreciate most"},
+        {"title": "Working Well", "content": "Things that are clearly functioning"},
+        {"title": "Team Wins", "content": "Positive feedback and achievements"}
       ]
     },
     {
-      "title": "Areas for Improvement",
+      "title": "Challenges & Pain Points",
       "type": "feedback",
       "content": [
-        {"title": "Main Challenge", "content": "Key improvement area with examples"},
-        {"title": "Common Concern", "content": "Another improvement area with examples"},
-        {"title": "Opportunity", "content": "Additional area for enhancement"}
+        {"title": "Primary Challenge", "content": "Main issue identified with examples"},
+        {"title": "Common Frustration", "content": "Frequent complaint or concern"},
+        {"title": "Blocking Issue", "content": "What's preventing progress"},
+        {"title": "Improvement Need", "content": "Clear area needing attention"}
       ]
     },
     {
-      "title": "Action Items",
+      "title": "Sentiment Analysis",
       "type": "feedback",
       "content": [
-        {"title": "Immediate Actions", "content": "Quick wins based on feedback"},
-        {"title": "Medium-term Goals", "content": "Longer-term improvements suggested"},
-        {"title": "Key Recommendations", "content": "Strategic recommendations from the data"}
+        {"title": "Overall Mood", "content": "General sentiment across responses"},
+        {"title": "Satisfaction Level", "content": "How satisfied people seem overall"},
+        {"title": "Engagement Indicators", "content": "Signs of engagement or disengagement"},
+        {"title": "Emotional Themes", "content": "Emotional patterns in responses"}
+      ]
+    },
+    {
+      "title": "Action Recommendations",
+      "type": "feedback",
+      "content": [
+        {"title": "Quick Wins", "content": "Easy improvements to implement immediately"},
+        {"title": "Strategic Priority", "content": "Most important long-term focus area"},
+        {"title": "Process Improvements", "content": "Workflow or process changes suggested"},
+        {"title": "Communication Needs", "content": "Communication improvements needed"}
       ]
     },
     {
@@ -308,18 +321,14 @@ Analyze these responses and create a comprehensive presentation structure. Retur
   ]
 }
 
-ANALYSIS REQUIREMENTS:
-- Create a SHORT, catchy title (3-5 words maximum) based on the survey context
-- Generate 4-5 analysis pages with different perspectives on the data
-- Each page should have 3-4 specific insights
-- Look for patterns, themes, and actionable insights
-- Include specific examples from the actual survey responses
-- Identify both positive feedback and improvement areas
-- Provide actionable recommendations
-- Make insights valuable for decision-makers
-- Focus on what the data reveals about the topic surveyed
-- End with a thank you page (type: "thankyou")
-- Return ONLY the JSON, no other text`;
+CRITICAL REQUIREMENTS:
+- You MUST include ALL 5 analysis pages exactly as shown above
+- Each page MUST have 4 content items as specified
+- Analyze the actual survey responses thoroughly
+- Use specific examples and quotes from the responses where possible
+- Make insights actionable and valuable for decision makers
+- Look for patterns, themes, sentiment, and opportunities
+- Return ONLY the JSON structure above, nothing else`;
 
     try {
         const response = await fetch(analyzeUrl, {
@@ -328,7 +337,7 @@ ANALYSIS REQUIREMENTS:
             body: JSON.stringify({
                 apiKey: localStorage.getItem('claude_api_key'),
                 prompt: prompt,
-                maxTokens: 3500,
+                maxTokens: 4000, // Increased token limit for more comprehensive analysis
                 action: 'analyze'
             })
         });
