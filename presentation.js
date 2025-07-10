@@ -37,6 +37,8 @@ function updateProgressIndicator() {
 
 function updatePresentationContent(data) {
     try {
+        console.log('Updating presentation with data:', data); // Debug log
+        
         // Clear existing slides and rebuild based on dynamic data
         const slidesContainer = document.getElementById('slidesContainer');
         if (!slidesContainer) {
@@ -46,20 +48,27 @@ function updatePresentationContent(data) {
         
         slidesContainer.innerHTML = '';
         
+        // Validate data structure
+        if (!data || !data.pages || !Array.isArray(data.pages)) {
+            console.error('Invalid data structure:', data);
+            showError('Invalid presentation data structure');
+            return;
+        }
+        
         // Update total slides count
-        totalSlides = (data.pages ? data.pages.length : 0) + 1; // +1 for title slide
+        totalSlides = data.pages.length + 1; // +1 for title slide
+        console.log('Total slides:', totalSlides); // Debug log
         
         // Create title slide
         const titleSlide = createTitleSlide(data);
         slidesContainer.appendChild(titleSlide);
         
         // Create dynamic slides based on analysis
-        if (data.pages && Array.isArray(data.pages)) {
-            data.pages.forEach((page, index) => {
-                const slide = createDynamicSlide(page, index + 2);
-                slidesContainer.appendChild(slide);
-            });
-        }
+        data.pages.forEach((page, index) => {
+            console.log('Creating slide for page:', page); // Debug log
+            const slide = createDynamicSlide(page, index + 2);
+            slidesContainer.appendChild(slide);
+        });
         
         // Update slides container width
         slidesContainer.style.width = `${totalSlides * 100}%`;
@@ -69,7 +78,7 @@ function updatePresentationContent(data) {
         
     } catch (error) {
         console.error('Error updating presentation content:', error);
-        showError('Error loading presentation content');
+        showError('Error loading presentation content: ' + error.message);
     }
 }
 
@@ -348,6 +357,7 @@ function loadPresentationFromURL() {
     
     try {
         presentationData = decompressData(compressedData);
+        console.log('Loaded presentation data:', presentationData); // Debug log
         updatePresentationContent(presentationData);
         
         setTimeout(() => {
@@ -355,8 +365,9 @@ function loadPresentationFromURL() {
         }, 1500);
         
     } catch (error) {
+        console.error('Error loading presentation:', error); // Debug log
         setTimeout(() => {
-            showError('The presentation link appears to be corrupted or invalid.');
+            showError('The presentation link appears to be corrupted or invalid. Error: ' + error.message);
         }, 1000);
     }
 }
