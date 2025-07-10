@@ -183,10 +183,28 @@ async function generatePresentation() {
         // Create simple presentation structure
         presentationData = await createSimplePresentation(surveyData, surveyContext);
         
-        // Generate shareable link
+        // Generate shareable link - handle large data by using localStorage
         const compressedData = compressData(presentationData);
         const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', 'index.html');
-        const shareLink = `${baseUrl}?d=${compressedData}`;
+        
+        let shareLink;
+        
+        // If the data is too large for URL (over 2000 chars), use localStorage
+        if (compressedData.length > 2000) {
+            const presentationId = 'presentation_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem(presentationId, JSON.stringify(presentationData));
+            
+            // Create a compact reference
+            const compactRef = btoa(JSON.stringify({
+                type: 'localStorage',
+                id: presentationId,
+                timestamp: Date.now()
+            }));
+            
+            shareLink = `${baseUrl}?d=${compactRef}`;
+        } else {
+            shareLink = `${baseUrl}?d=${compressedData}`;
+        }
         
         // Show results
         document.getElementById('shareSection').style.display = 'block';
@@ -243,19 +261,27 @@ async function askClaudeForPresentationStructure(responses, context, responseCou
     const apiEndpoint = getApiEndpoint();
     const analyzeUrl = apiEndpoint.includes('netlify') ? apiEndpoint : `${apiEndpoint}/claude`;
     
-    const prompt = `You are an expert survey analyst. You must analyze the ACTUAL survey responses below and extract REAL insights, themes, and patterns from the data. Do not use generic placeholder text.
+    const prompt = `STOP! You must analyze the REAL survey responses below. Do NOT write generic descriptions. 
+
+I'm giving you actual survey data to analyze. You must read each response and extract REAL themes, quotes, and insights.
 
 Survey Context: "${context}"
 
-ACTUAL Survey Responses (${responseCount} total):
-${responses.slice(0, 50).map((response, index) => `${index + 1}. "${response}"`).join('\n')}
+HERE ARE THE ACTUAL RESPONSES TO ANALYZE:
+${responses.slice(0, 50).map((response, index) => `Response ${index + 1}: "${response}"`).join('\n')}
 
-Read these responses carefully and identify REAL patterns, themes, and insights. Extract ACTUAL quotes and examples. Create a comprehensive presentation with REAL analysis of this data.
+TASK: Read every response above. Find real patterns. Extract actual quotes. Identify genuine themes.
 
-Return this EXACT JSON structure with REAL content analysis:
+For example, if someone wrote "Communication is terrible, nobody tells us anything", you would put that as actual content, not "communication challenges identified".
+
+If multiple people mention meetings, you would say "Several respondents mentioned meeting issues" and quote examples.
+
+If people praise teamwork, you would quote what they actually said about teamwork.
+
+Return this JSON with REAL analysis of the responses above:
 
 {
-  "surveyType": "Brief catchy title (3-4 words)",
+  "surveyType": "Survey Results",
   "responseCount": ${responseCount},
   "pages": [
     {
@@ -266,53 +292,43 @@ Return this EXACT JSON structure with REAL content analysis:
       ]
     },
     {
-      "title": "Key Themes & Patterns",
+      "title": "Main Themes",
       "type": "feedback", 
       "content": [
-        {"title": "Most Frequent Theme", "content": "ACTUAL theme you identified from the responses with specific examples or quotes"},
-        {"title": "Secondary Pattern", "content": "REAL second pattern with actual examples from the data"},
-        {"title": "Emerging Trend", "content": "ACTUAL trend with specific examples from responses"},
-        {"title": "Notable Finding", "content": "REAL insight with examples from the actual responses"}
+        {"title": "Theme 1", "content": "Write what you actually found in the responses - quote specific examples"},
+        {"title": "Theme 2", "content": "Another real theme with actual quotes from responses"},
+        {"title": "Theme 3", "content": "Third theme with real examples from the data"},
+        {"title": "Theme 4", "content": "Fourth theme with actual response content"}
       ]
     },
     {
-      "title": "Positive Highlights",
+      "title": "Positive Feedback",
       "type": "feedback",
       "content": [
-        {"title": "Top Strength", "content": "ACTUAL positive feedback from responses with examples"},
-        {"title": "Success Story", "content": "REAL positive themes with specific examples"},
-        {"title": "Working Well", "content": "ACTUAL things mentioned as working well"},
-        {"title": "Team Wins", "content": "REAL positive feedback and achievements mentioned"}
+        {"title": "What People Like", "content": "Quote actual positive things people said"},
+        {"title": "Strengths Mentioned", "content": "Real positive feedback from responses"},
+        {"title": "Success Examples", "content": "Actual examples of what's working well"},
+        {"title": "Appreciated Aspects", "content": "Things people specifically praised"}
       ]
     },
     {
-      "title": "Challenges & Pain Points",
+      "title": "Issues & Concerns", 
       "type": "feedback",
       "content": [
-        {"title": "Primary Challenge", "content": "ACTUAL main issue identified from responses with examples"},
-        {"title": "Common Frustration", "content": "REAL frequent complaint from the data"},
-        {"title": "Blocking Issue", "content": "ACTUAL problem mentioned in responses"},
-        {"title": "Improvement Need", "content": "REAL area needing attention based on responses"}
+        {"title": "Main Problems", "content": "Actual problems people mentioned with quotes"},
+        {"title": "Common Complaints", "content": "Real issues that came up multiple times"},
+        {"title": "Frustrations", "content": "Things people are frustrated about"},
+        {"title": "Needs Improvement", "content": "Areas people said need work"}
       ]
     },
     {
-      "title": "Sentiment Analysis",
+      "title": "Key Insights",
       "type": "feedback",
       "content": [
-        {"title": "Overall Mood", "content": "ACTUAL sentiment you detected from reading the responses"},
-        {"title": "Satisfaction Level", "content": "REAL satisfaction indicators from the data"},
-        {"title": "Engagement Indicators", "content": "ACTUAL signs of engagement/disengagement in responses"},
-        {"title": "Emotional Themes", "content": "REAL emotional patterns you found in the responses"}
-      ]
-    },
-    {
-      "title": "Action Recommendations",
-      "type": "feedback",
-      "content": [
-        {"title": "Quick Wins", "content": "REAL suggestions based on what people actually said"},
-        {"title": "Strategic Priority", "content": "ACTUAL priority based on the response analysis"},
-        {"title": "Process Improvements", "content": "REAL process changes suggested by the data"},
-        {"title": "Communication Needs", "content": "ACTUAL communication improvements based on responses"}
+        {"title": "Most Important Finding", "content": "The biggest insight from reading all responses"},
+        {"title": "Surprising Discovery", "content": "Something unexpected you found in the data"},
+        {"title": "Clear Pattern", "content": "An obvious pattern across multiple responses"},
+        {"title": "Action Needed", "content": "What clearly needs to be done based on responses"}
       ]
     },
     {
@@ -323,14 +339,13 @@ Return this EXACT JSON structure with REAL content analysis:
   ]
 }
 
-CRITICAL REQUIREMENTS:
-- You MUST analyze the ACTUAL survey responses provided above
-- Use REAL quotes, examples, and specific content from the responses
-- Identify ACTUAL patterns and themes from the data
-- Do NOT use generic placeholder text like "Primary pattern identified"
-- Extract REAL insights that someone could act on
-- Base ALL content on the actual responses provided
-- Return ONLY the JSON structure above, nothing else`;
+RULES:
+- Quote actual things people wrote
+- Don't say "participants expressed" - say what they actually expressed
+- Don't say "areas identified" - say what the actual areas are
+- Use real words from real responses
+- If someone says "meetings are too long", write that, don't say "meeting duration concerns"
+- Be specific and use actual content from the responses above`;
 
     try {
         const response = await fetch(analyzeUrl, {
