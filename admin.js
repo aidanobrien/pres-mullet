@@ -242,10 +242,10 @@ Survey Context: "${context}"
 Survey Responses (${responseCount} total):
 ${responses.slice(0, 30).map((response, index) => `${index + 1}. "${response}"`).join('\n')}
 
-Create a presentation structure. The first slide will be a cover slide using the survey context as the title. The last slide will be a thank you slide. Return ONLY this JSON format:
+Create a presentation structure. The first slide will be a cover slide with a short, catchy title. The last slide will be a thank you slide. Return ONLY this JSON format:
 
 {
-  "surveyType": "${context}",
+  "surveyType": "Short catchy title (3-5 words max based on context)",
   "responseCount": ${responseCount},
   "pages": [
     {
@@ -273,7 +273,8 @@ Create a presentation structure. The first slide will be a cover slide using the
 }
 
 Requirements:
-- Use the exact survey context as the surveyType (this becomes the cover slide title)
+- Create a SHORT, catchy title (3-5 words maximum) based on the survey context
+- The title should be presentation-ready and professional
 - Overview should ONLY show response count (no analysis sections count or other metrics)
 - Create 3-4 analysis slides with detailed insights (4-6 insights per slide)
 - Make content detailed with specific examples of what people actually said
@@ -307,7 +308,7 @@ Requirements:
         
         // Fallback structure
         return {
-            surveyType: context || 'Survey Results',
+            surveyType: 'Team Feedback Survey',
             responseCount: responseCount,
             pages: [
                 {
