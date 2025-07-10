@@ -620,31 +620,39 @@ function clearAllApiData() {
     }
 }
 
+// Determine the API endpoint based on environment
+function getApiEndpoint() {
+    // Check if we're on Netlify (look for netlify in hostname)
+    if (window.location.hostname.includes('netlify') || window.location.hostname.includes('your-site-name')) {
+        return '/.netlify/functions/claude-api';
+    }
+    // Local development
+    return 'http://localhost:3001/api';
+}
+
 async function testApiConnection(apiKey) {
     const statusEl = document.getElementById('apiStatus');
     statusEl.innerHTML = '<span class="status-indicator testing">●</span><span>Testing connection...</span>';
     
     try {
-        // Use a simple completion test instead of messages
-        const response = await fetch('https://api.anthropic.com/v1/complete', {
+        const apiEndpoint = getApiEndpoint();
+        const testUrl = apiEndpoint.includes('netlify') ? apiEndpoint : `${apiEndpoint}/test`;
+        
+        const response = await fetch(testUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
-                model: 'claude-instant-1.2',
-                prompt: '\n\nHuman: Test\n\nAssistant:',
-                max_tokens_to_sample: 5,
-                stop_sequences: ['\n\nHuman:']
+                apiKey: apiKey,
+                action: 'test'
             })
         });
         
-        const responseText = await response.text();
-        console.log('API Test Response:', response.status, responseText);
+        const data = await response.json();
+        console.log('API Test Response:', response.status, data);
         
-        if (response.ok) {
+        if (response.ok && data.status === 'connected') {
             statusEl.innerHTML = '<span class="status-indicator online">●</span><span>API connected - ready for intelligent analysis!</span>';
             window.claudeApiReady = true;
         } else if (response.status === 401) {
@@ -654,27 +662,22 @@ async function testApiConnection(apiKey) {
             statusEl.innerHTML = '<span class="status-indicator offline">●</span><span>Rate limit reached - API key is valid but quota exceeded</span>';
             window.claudeApiReady = false;
         } else {
-            statusEl.innerHTML = '<span class="status-indicator offline">●</span><span>API error (${response.status}) - please try again</span>';
+            statusEl.innerHTML = `<span class="status-indicator offline">●</span><span>API error (${response.status}) - ${data.error || 'please try again'}</span>`;
             window.claudeApiReady = false;
         }
     } catch (error) {
         console.error('API test error:', error);
-        statusEl.innerHTML = '<span class="status-indicator offline">●</span><span>Connection failed - check your internet and API key</span>';
+        
+        // Provide helpful error messages based on environment
+        const apiEndpoint = getApiEndpoint();
+        if (apiEndpoint.includes('localhost')) {
+            statusEl.innerHTML = '<span class="status-indicator offline">●</span><span>Proxy server not running - start proxy-server.js first</span>';
+        } else {
+            statusEl.innerHTML = '<span class="status-indicator offline">●</span><span>Connection failed - check your deployment and API key</span>';
+        }
         window.claudeApiReady = false;
     }
 }
-
-// Load saved API key on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const savedKey = localStorage.getItem('claude_api_key');
-    if (savedKey) {
-        document.getElementById('claudeApiKey').value = savedKey;
-        handleApiKeyInput(); // Enable test button
-        // Don't auto-test on load to avoid unnecessary API calls
-        const statusEl = document.getElementById('apiStatus');
-        statusEl.innerHTML = '<span class="status-indicator testing">●</span><span>Saved key loaded - click Test Connection to verify</span>';
-    }
-});
 
 async function analyzeWithClaude(responses, instruction, pageTitle) {
     const apiKey = localStorage.getItem('claude_api_key');
@@ -687,25 +690,25 @@ async function analyzeWithClaude(responses, instruction, pageTitle) {
     
     try {
         const prompt = createAnalysisPrompt(responses, instruction, pageTitle);
+        const apiEndpoint = getApiEndpoint();
+        const analyzeUrl = apiEndpoint.includes('netlify') ? apiEndpoint : `${apiEndpoint}/claude`;
         
-        const response = await fetch('https://api.anthropic.com/v1/complete', {
+        const response = await fetch(analyzeUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
-                model: 'claude-instant-1.2',
+                apiKey: apiKey,
                 prompt: prompt,
-                max_tokens_to_sample: 1000,
-                stop_sequences: ['\n\nHuman:'],
-                temperature: 0.1
+                maxTokens: 1000,
+                action: 'analyze'
             })
         });
         
         if (!response.ok) {
-            throw new Error(`API error: ${response.status} - ${await response.text()}`);
+            const errorData = await response.json();
+            throw new Error(`API error: ${response.status} - ${errorData.error || 'Unknown error'}`);
         }
         
         const data = await response.json();
@@ -715,9 +718,25 @@ async function analyzeWithClaude(responses, instruction, pageTitle) {
         
     } catch (error) {
         console.error('Claude API error:', error);
+        
+        if (error.message.includes('fetch')) {
+            const apiEndpoint = getApiEndpoint();
+            if (apiEndpoint.includes('localhost')) {
+                return [{
+                    title: "Proxy Error",
+                    content: "Proxy server not running. Please start the proxy server (node proxy-server.js) and try again."
+                }];
+            } else {
+                return [{
+                    title: "Function Error",
+                    content: "Netlify function not responding. Please check your deployment and try again."
+                }];
+            }
+        }
+        
         return [{
             title: "Analysis Error",
-            content: `Unable to analyze responses: ${error.message}. Check your API key and try again.`
+            content: `Unable to analyze responses: ${error.message}. Check your API key and connection.`
         }];
     }
 }
