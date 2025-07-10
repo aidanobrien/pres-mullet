@@ -91,6 +91,29 @@ function showPageBuilder() {
     // Initialize with default pages
     initializeDefaultPages();
     
+    // Add helpful CSV column info
+    if (surveyData && surveyData.headers) {
+        const csvInfo = document.createElement('div');
+        csvInfo.className = 'csv-preview';
+        csvInfo.innerHTML = `
+            <h4>📊 Your CSV Structure</h4>
+            <p><strong>Columns found:</strong> ${surveyData.headers.join(', ')}</p>
+            <p><strong>Sample data:</strong></p>
+            <div class="sample-data">
+                ${surveyData.data.slice(0, 2).map((row, index) => `
+                    <div class="sample-row">
+                        <strong>Response ${index + 1}:</strong><br>
+                        ${Object.entries(row).slice(0, 3).map(([key, val]) => `
+                            <span class="sample-cell">${key}: "${val ? val.substring(0, 50) : 'empty'}${val && val.length > 50 ? '...' : ''}"</span>
+                        `).join('<br>')}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        pageBuilderSection.insertBefore(csvInfo, pageBuilderSection.firstChild.nextSibling);
+    }
+    
     // Scroll to page builder
     pageBuilderSection.scrollIntoView({ 
         behavior: 'smooth', 
@@ -477,25 +500,40 @@ function generateRatingsPageFromInstruction(title, instruction, data) {
 }
 
 function generateFeedbackPageFromInstruction(title, instruction, data) {
+    console.log('=== Generating page:', title, '===');
+    console.log('Instruction:', instruction);
+    console.log('Available columns:', data.headers);
+    
     // Find relevant columns based on instruction
     const relevantColumns = findRelevantColumnsFromInstruction(data.headers, instruction);
+    console.log('Selected columns:', relevantColumns);
     
     // Extract all relevant responses
     const allResponses = [];
     relevantColumns.forEach(column => {
+        console.log(`Processing column: ${column}`);
         const responses = data.data
             .map(row => row[column])
-            .filter(val => val && val.trim() && val.length > 10);
+            .filter(val => val && val.trim() && val.length > 5); // Lowered minimum length
+        
+        console.log(`Found ${responses.length} responses in ${column}:`, responses.slice(0, 2));
         allResponses.push(...responses);
     });
     
+    console.log(`Total responses found: ${allResponses.length}`);
+    
     if (allResponses.length === 0) {
+        // Better debugging for empty results
+        console.log('=== DEBUGGING: No responses found ===');
+        console.log('All headers:', data.headers);
+        console.log('Sample data from first row:', data.data[0]);
+        
         return {
             title: title,
             type: "feedback",
             content: [{
                 title: "No Data Found",
-                content: "No relevant responses found for the specified criteria."
+                content: `No relevant responses found. Available columns: ${data.headers.slice(0, 5).join(', ')}${data.headers.length > 5 ? '...' : ''}. Try being more specific about which column to analyze.`
             }]
         };
     }
@@ -1726,34 +1764,101 @@ function extractKeywordsFromInstruction(instruction) {
 
 function findRelevantColumnsFromInstruction(headers, instruction) {
     const instructionLower = instruction.toLowerCase();
+    const relevantColumns = [];
     
-    // Look for exact column name matches
-    const exactMatches = headers.filter(header => 
-        instructionLower.includes(header.toLowerCase())
-    );
+    console.log('Looking for relevant columns...');
+    console.log('Available headers:', headers);
+    console.log('Instruction:', instruction);
     
-    if (exactMatches.length > 0) {
-        return exactMatches;
-    }
-    
-    // Look for keyword matches in headers
-    const keywords = extractKeywordsFromInstruction(instruction);
-    const keywordMatches = headers.filter(header => 
-        keywords.some(keyword => 
-            header.toLowerCase().includes(keyword.toLowerCase())
-        )
-    );
-    
-    if (keywordMatches.length > 0) {
-        return keywordMatches;
-    }
-    
-    // Fallback: return text columns
-    return headers.filter((header, index) => {
-        if (index >= 5) return false;
-        const samples = surveyData.data.slice(0, 3).map(row => row[header]).filter(val => val);
-        return samples.some(val => val && val.length > 20);
+    // 1. Look for exact column name matches (case insensitive)
+    headers.forEach(header => {
+        if (instructionLower.includes(header.toLowerCase())) {
+            relevantColumns.push(header);
+            console.log('Found exact match:', header);
+        }
     });
+    
+    if (relevantColumns.length > 0) {
+        return relevantColumns;
+    }
+    
+    // 2. Look for partial matches in column names
+    const keywords = extractKeywordsFromInstruction(instruction);
+    console.log('Extracted keywords:', keywords);
+    
+    headers.forEach(header => {
+        const headerLower = header.toLowerCase();
+        keywords.forEach(keyword => {
+            if (headerLower.includes(keyword.toLowerCase()) || keyword.toLowerCase().includes(headerLower)) {
+                if (!relevantColumns.includes(header)) {
+                    relevantColumns.push(header);
+                    console.log('Found keyword match:', header, 'for keyword:', keyword);
+                }
+            }
+        });
+    });
+    
+    if (relevantColumns.length > 0) {
+        return relevantColumns;
+    }
+    
+    // 3. Look for common survey patterns
+    const surveyPatterns = {
+        feedback: ['feedback', 'comment', 'thoughts', 'opinion', 'suggest', 'improve', 'better', 'change'],
+        positive: ['good', 'like', 'love', 'best', 'great', 'excellent', 'positive', 'strength', 'working'],
+        negative: ['bad', 'issue', 'problem', 'concern', 'difficult', 'challenge', 'improve', 'fix'],
+        rating: ['rate', 'rating', 'score', 'satisfaction', 'scale'],
+        general: ['what', 'how', 'why', 'describe', 'explain', 'tell', 'share']
+    };
+    
+    Object.values(surveyPatterns).flat().forEach(pattern => {
+        if (instructionLower.includes(pattern)) {
+            headers.forEach(header => {
+                const headerLower = header.toLowerCase();
+                if (headerLower.includes(pattern) || pattern.includes(headerLower)) {
+                    if (!relevantColumns.includes(header)) {
+                        relevantColumns.push(header);
+                        console.log('Found pattern match:', header, 'for pattern:', pattern);
+                    }
+                }
+            });
+        }
+    });
+    
+    if (relevantColumns.length > 0) {
+        return relevantColumns;
+    }
+    
+    // 4. Fallback: look for text columns (ignore ID, timestamp, etc.)
+    const textColumns = headers.filter(header => {
+        const headerLower = header.toLowerCase();
+        
+        // Skip obvious non-text columns
+        if (headerLower.includes('id') || 
+            headerLower.includes('timestamp') || 
+            headerLower.includes('date') ||
+            headerLower.includes('time') ||
+            headerLower.includes('response type') ||
+            headerLower.includes('network') ||
+            headerLower.includes('tags') ||
+            headerLower.startsWith('#')) {
+            return false;
+        }
+        
+        // Check if this column has substantial text content
+        if (surveyData && surveyData.data) {
+            const sampleValues = surveyData.data.slice(0, 3)
+                .map(row => row[header])
+                .filter(val => val && val.trim());
+            
+            return sampleValues.some(val => val.length > 15);
+        }
+        
+        return true;
+    });
+    
+    console.log('Fallback text columns:', textColumns);
+    return textColumns.slice(0, 3); // Limit to first 3 text columns
 }
 
 function findRatingColumns(headers) {
