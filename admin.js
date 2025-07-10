@@ -192,6 +192,14 @@ async function generatePresentation() {
         document.getElementById('shareSection').style.display = 'block';
         document.getElementById('shareLink').textContent = shareLink;
         
+        // Auto-scroll to the share section so user knows what to do next
+        setTimeout(() => {
+            document.getElementById('shareSection').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+            });
+        }, 300);
+        
         generateBtn.disabled = false;
         generateBtn.textContent = 'Generate Presentation';
         
