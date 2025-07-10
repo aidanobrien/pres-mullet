@@ -49,7 +49,7 @@ function updatePresentationContent(data) {
         // Update total slides count
         totalSlides = (data.pages ? data.pages.length : 0) + 1; // +1 for title slide
         
-        // Create title slide (CHANGED: Now a cover slide)
+        // Create title slide
         const titleSlide = createTitleSlide(data);
         slidesContainer.appendChild(titleSlide);
         
@@ -75,15 +75,27 @@ function updatePresentationContent(data) {
 
 function createTitleSlide(data) {
     const slide = document.createElement('div');
-    slide.className = 'slide cover-slide'; // CHANGED: Added cover-slide class
+    slide.className = 'slide';
     slide.style.width = `${100 / totalSlides}%`;
     
-    const surveyType = data.surveyType || 'Survey Results';
+    const surveyType = data.surveyType || 'Survey';
+    const responseCount = data.responseCount || 0;
+    const pageCount = data.pages ? data.pages.length : 0;
     
-    // CHANGED: Simple cover slide layout
     slide.innerHTML = `
-        <div class="cover-content">
-            <h1 class="cover-title">${escapeHtml(surveyType)}</h1>
+        <h1>${escapeHtml(surveyType)} Results</h1>
+        <div class="description">
+            <p>Analysis of ${responseCount} survey responses</p>
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-number">${responseCount}</div>
+                    <div class="stat-label">Total Responses</div>
+                </div>
+                <div class="stat-card purple-gradient">
+                    <div class="stat-number">${pageCount}</div>
+                    <div class="stat-label">Analysis Sections</div>
+                </div>
+            </div>
         </div>
     `;
     
@@ -110,15 +122,6 @@ function createDynamicSlide(pageData, slideNumber) {
             case 'general':
                 slideContent += createCardsContent(pageData.content || [], pageData.type);
                 break;
-            case 'thankyou':
-                // CHANGED: Create thank you slide - same style as cover
-                slide.className = 'slide cover-slide';
-                slideContent = `
-                    <div class="cover-content">
-                        <h1 class="cover-title">Thank You</h1>
-                    </div>
-                `;
-                break;
             default:
                 slideContent += createGenericContent(pageData.content || []);
         }
@@ -136,19 +139,9 @@ function createOverviewContent(stats) {
         return '<div class="description"><p>No overview data available</p></div>';
     }
     
-    // CHANGED: Filter out "Analysis Sections" metrics
-    const filteredStats = stats.filter(stat => 
-        !stat.title.toLowerCase().includes('analysis') &&
-        !stat.title.toLowerCase().includes('section')
-    );
-    
-    if (filteredStats.length === 0) {
-        return '<div class="description"><p>No overview data available</p></div>';
-    }
-    
     return `
         <div class="stats-container">
-            ${filteredStats.map(stat => `
+            ${stats.map(stat => `
                 <div class="stat-card">
                     <div class="stat-number">${escapeHtml(stat.value || 'N/A')}</div>
                     <div class="stat-label">${escapeHtml(stat.title || 'Statistic')}</div>
