@@ -264,7 +264,7 @@ function decompressData(compressedData) {
         
         // Check if this is a localStorage reference
         if (parsed.type === 'localStorage' && parsed.id) {
-            return loadFromLocalStorage(parsed.id, parsed.fallback);
+            return loadFromLocalStorage(parsed.id);
         }
         
         // Check if this is compact format and expand it
@@ -279,7 +279,7 @@ function decompressData(compressedData) {
     }
 }
 
-function loadFromLocalStorage(presentationId, fallback) {
+function loadFromLocalStorage(presentationId) {
     try {
         const stored = localStorage.getItem(presentationId);
         if (stored) {
@@ -289,12 +289,7 @@ function loadFromLocalStorage(presentationId, fallback) {
         console.error('Failed to load from localStorage:', error);
     }
     
-    // Use fallback if localStorage fails
-    if (fallback) {
-        return expandCompactData(fallback);
-    }
-    
-    throw new Error('Presentation data not found');
+    throw new Error('Presentation data not found in storage');
 }
 
 function expandCompactData(compactData) {
