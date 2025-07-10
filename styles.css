@@ -113,13 +113,21 @@ body {
     color: #ea580c;
 }
 
-.test-api-btn {
+.api-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.test-api-btn, .clear-all-btn {
     padding: 8px 16px;
     border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
+}
+
+.test-api-btn {
     background: #0ea5e9;
     color: white;
     border: none;
@@ -132,6 +140,16 @@ body {
 .test-api-btn:disabled {
     background: #cbd5e1;
     cursor: not-allowed;
+}
+
+.clear-all-btn {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+}
+
+.clear-all-btn:hover {
+    background: #fee2e2;
 }
 
 /* Admin Styles */
@@ -202,7 +220,7 @@ body {
     display: none;
 }
 
-.customization-section {
+.customization-section, .survey-context-section {
     background: #f7fafc;
     border-radius: 16px;
     padding: 30px;
