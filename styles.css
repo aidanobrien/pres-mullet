@@ -194,6 +194,10 @@ body {
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
+.density-btn.selected .density-description {
+    color: white;
+}
+
 .density-description {
     font-size: 12px;
     color: #718096;
