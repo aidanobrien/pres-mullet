@@ -1,3 +1,4 @@
+// REPLACE ONLY THIS FUNCTION IN YOUR EXISTING admin.js
 async function askClaudeForPresentationStructure(responses, context, responseCount) {
     const apiEndpoint = getApiEndpoint();
     const analyzeUrl = apiEndpoint.includes('netlify') ? apiEndpoint : `${apiEndpoint}/claude`;
