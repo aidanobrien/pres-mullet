@@ -406,15 +406,22 @@ function generateCustomPageContent(pageConfig, data) {
     
     switch (type) {
         case 'overview':
-            return generateOverviewPageFromInstruction(title, instruction, data);
+            return {
+                title: title,
+                type: "overview",
+                content: [
+                    {
+                        title: "Total Responses",
+                        value: data.data.length,
+                        description: "Survey participants"
+                    }
+                ]
+            };
         case 'ratings':
             return generateRatingsPageFromInstruction(title, instruction, data);
         case 'feedback':
-            return generateFeedbackPageFromInstruction(title, instruction, data);
         case 'insights':
-            return generateInsightsPageFromInstruction(title, instruction, data);
         case 'custom':
-            return generateCustomPageFromInstruction(title, instruction, data);
         default:
             return generateFeedbackPageFromInstruction(title, instruction, data);
     }
