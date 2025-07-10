@@ -742,7 +742,7 @@ async function analyzeWithClaude(responses, instruction, pageTitle) {
 }
 
 function createAnalysisPrompt(responses, instruction, pageTitle) {
-    return `\n\nHuman: You are analyzing survey responses for a presentation slide titled "${pageTitle}".
+    return `You are analyzing survey responses for a presentation slide titled "${pageTitle}".
 
 User instruction: "${instruction}"
 
@@ -765,9 +765,7 @@ Requirements:
 - If responses are positive/negative, reflect that in your analysis
 - Don't make up information not present in the responses
 
-Return only the JSON array, no other text.
-
-\n\nAssistant: `;
+Return only the JSON array, no other text.`;
 }
 
 function parseClaudeResponse(responseText) {
