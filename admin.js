@@ -283,34 +283,34 @@ async function askClaudeForPresentationStructure(responses, context, responseCou
         'detailed': 'Provide comprehensive analysis - 3-4 sentences per insight with multiple examples and quotes.'
     };
     
-    const prompt = `You are analyzing REAL survey data. You must read every response and create RELEVANT pages based on what you actually find.
-
-CONTENT DENSITY: ${densityInstructions[selectedDensity]}
+    const prompt = `Read these survey responses and create a presentation with real analysis.
 
 Survey Context: "${context}"
 
-ACTUAL SURVEY RESPONSES TO ANALYZE:
+SURVEY RESPONSES:
 ${responses.slice(0, 50).map((response, index) => `"${response}"`).join('\n')}
 
-INSTRUCTIONS:
-1. Read ALL the responses above carefully
-2. Identify what type of survey this is based on the responses and context
-3. Create page titles that make sense for THIS specific survey
-4. Extract REAL quotes and patterns from the actual responses
-5. Do NOT use generic analysis language
+Analyze what you read above. Create page titles based on what you actually found. Quote real things people said.
 
-Based on what you find in the responses, create 4-5 relevant analysis pages. The page titles should match what you actually discovered.
+Example of good content:
+- "Many people mentioned long meetings: 'too many meetings interrupt work' and 'meetings could be shorter'"
+- "Communication issues were common: 'information doesn't reach everyone' and 'we need better updates'"
 
-For example:
-- If it's about team collaboration → "Communication Gaps", "Team Strengths", "Process Issues"
-- If it's about product feedback → "Feature Requests", "User Pain Points", "What Users Love"
-- If it's about employee satisfaction → "Job Satisfaction", "Management Feedback", "Workplace Culture"
-- If it's about training → "Learning Gaps", "Training Effectiveness", "Resource Needs"
+Example of bad content (don't do this):
+- "Primary pattern identified across responses"
+- "Themes emerged from the data"
 
-Return this JSON with REAL analysis and RELEVANT page titles:
+Create a JSON presentation with:
+1. An overview page
+2. 3-4 analysis pages with titles that match what you found
+3. A thank you page
+
+Make the page titles relevant to what people actually wrote about. Quote real responses.
+
+Return only JSON in this format:
 
 {
-  "surveyType": "Brief descriptive title based on the responses",
+  "surveyType": "Title based on what you read",
   "responseCount": ${responseCount},
   "pages": [
     {
@@ -321,43 +321,30 @@ Return this JSON with REAL analysis and RELEVANT page titles:
       ]
     },
     {
-      "title": "RELEVANT PAGE TITLE based on what you found",
+      "title": "CREATE RELEVANT TITLE based on what you found",
       "type": "feedback", 
       "content": [
-        {"title": "Specific finding", "content": "Actual insight with real quotes from responses"},
-        {"title": "Another finding", "content": "Real pattern with examples from actual responses"},
-        {"title": "Third finding", "content": "Genuine insight with quotes from the data"},
-        {"title": "Fourth finding", "content": "Real observation with specific examples"}
+        {"title": "Finding 1", "content": "Real quote or insight from responses"},
+        {"title": "Finding 2", "content": "Another real finding with quotes"},
+        {"title": "Finding 3", "content": "More real content from responses"}
       ]
     },
     {
-      "title": "ANOTHER RELEVANT PAGE TITLE based on your analysis",
+      "title": "CREATE ANOTHER RELEVANT TITLE",
       "type": "feedback",
       "content": [
-        {"title": "Real insight", "content": "Actual content from responses with quotes"},
-        {"title": "Pattern found", "content": "Real theme with specific examples"},
-        {"title": "Key observation", "content": "Genuine finding with response quotes"},
-        {"title": "Important point", "content": "Real insight with actual examples"}
+        {"title": "Insight 1", "content": "Real content with actual quotes"},
+        {"title": "Insight 2", "content": "More real findings"},
+        {"title": "Insight 3", "content": "Actual response content"}
       ]
     },
     {
-      "title": "THIRD RELEVANT PAGE TITLE based on what responses show",
+      "title": "CREATE THIRD RELEVANT TITLE",
       "type": "feedback",
       "content": [
-        {"title": "Main point", "content": "Real finding with actual quotes"},
-        {"title": "Key theme", "content": "Genuine pattern with examples"},
-        {"title": "Notable insight", "content": "Actual observation with quotes"},
-        {"title": "Critical finding", "content": "Real content from responses"}
-      ]
-    },
-    {
-      "title": "FOURTH RELEVANT PAGE TITLE based on analysis",
-      "type": "feedback",
-      "content": [
-        {"title": "Final insight", "content": "Real conclusion with quotes"},
-        {"title": "Action needed", "content": "Actual recommendation based on responses"},
-        {"title": "Key takeaway", "content": "Genuine finding with examples"},
-        {"title": "Summary point", "content": "Real insight from the data"}
+        {"title": "Key point", "content": "Real insight with quotes"},
+        {"title": "Important finding", "content": "Actual content from responses"},
+        {"title": "Main takeaway", "content": "Real analysis with quotes"}
       ]
     },
     {
@@ -368,15 +355,7 @@ Return this JSON with REAL analysis and RELEVANT page titles:
   ]
 }
 
-CRITICAL RULES:
-- Page titles must be relevant to what you actually found in the responses
-- Content must include real quotes and specific examples from the responses
-- Do NOT write "Several respondents mentioned" - write what they actually said
-- Do NOT write "Areas identified" - write the actual areas
-- Do NOT write "Themes emerged" - write the actual themes
-- Quote actual words and phrases from the responses
-- Make every insight actionable and specific
-- Base everything on the real data above`;
+Quote actual things people wrote. Create page titles that make sense for this specific survey.`;
 
     try {
         const response = await fetch(analyzeUrl, {
@@ -402,9 +381,9 @@ CRITICAL RULES:
     } catch (error) {
         console.error('Claude API error:', error);
         
-        // Fallback structure
+        // Even the fallback should have real content
         return {
-            surveyType: 'Team Feedback Survey',
+            surveyType: 'Survey Analysis',
             responseCount: responseCount,
             pages: [
                 {
@@ -415,12 +394,12 @@ CRITICAL RULES:
                     ]
                 },
                 {
-                    title: "Key Themes",
+                    title: "Main Feedback",
                     type: "feedback",
                     content: [
-                        {"title": "Main Theme", "content": `Primary pattern identified across ${responseCount} responses`},
-                        {"title": "Common Feedback", "content": "Recurring themes in the survey data"},
-                        {"title": "Notable Insights", "content": "Key observations from participant responses"}
+                        {"title": "Direct Quote", "content": responses[0] || "No responses available"},
+                        {"title": "Another Response", "content": responses[1] || "No additional responses"},
+                        {"title": "Third Response", "content": responses[2] || "No more responses"}
                     ]
                 },
                 {
