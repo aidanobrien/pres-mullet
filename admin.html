@@ -10,8 +10,26 @@
     <div class="admin-container" id="adminContainer">
         <h1 class="admin-title">Survey Results Generator</h1>
         <p class="admin-description">
-            Upload your survey CSV to automatically generate a shareable clickthrough presentation for your team.
+            Upload your survey CSV and create an intelligent presentation automatically.
         </p>
+        
+        <div class="api-config-section">
+            <h3 class="customization-title">🔑 API Configuration</h3>
+            <div class="api-input-group">
+                <label for="claudeApiKey">Claude API Key:</label>
+                <div class="api-input-container">
+                    <input type="password" id="claudeApiKey" placeholder="sk-ant-api03-..." onchange="saveApiKey()" oninput="handleApiKeyInput()">
+                    <button type="button" class="clear-api-btn" onclick="clearApiKey()" title="Clear API key">🗑️</button>
+                    <button type="button" class="toggle-visibility-btn" onclick="toggleApiKeyVisibility()" title="Show/Hide key">👁️</button>
+                </div>
+                <small>Get your API key from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></small>
+            </div>
+            <div class="api-status" id="apiStatus">
+                <span class="status-indicator offline">●</span>
+                <span>API not configured</span>
+            </div>
+            <button type="button" class="test-api-btn" onclick="manualTestApi()" disabled>Test Connection</button>
+        </div>
         
         <div class="upload-area" id="uploadArea" onclick="document.getElementById('csvFile').click()">
             <div class="upload-icon">📊</div>
@@ -21,48 +39,14 @@
         
         <input type="file" id="csvFile" class="file-input" accept=".csv" onchange="handleFileUpload(event)">
         
-        <div class="api-config-section" id="apiConfigSection">
-            <h3 class="customization-title">🔑 API Configuration</h3>
-            <p class="customization-description">Add your Claude API key for intelligent analysis (get one from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>)</p>
+        <div class="survey-context-section" id="surveyContextSection" style="display: none;">
+            <h3 class="customization-title">📝 Survey Context</h3>
+            <p class="customization-description">Describe what this survey was about so we can create the right analysis</p>
             
-            <div class="api-input-group">
-                <label for="claudeApiKey">Claude API Key:</label>
-                <div class="api-input-container">
-                    <input type="password" id="claudeApiKey" placeholder="sk-ant-api03-..." onchange="saveApiKey()" oninput="handleApiKeyInput()">
-                    <button type="button" class="clear-api-btn" onclick="clearApiKey()" title="Clear API key">🗑️</button>
-                    <button type="button" class="toggle-visibility-btn" onclick="toggleApiKeyVisibility()" title="Show/Hide key">👁️</button>
-                </div>
-                <small>Your API key is stored locally and never sent to our servers. <a href="https://docs.anthropic.com/claude/reference/getting-started-with-the-api" target="_blank">Need help?</a></small>
-            </div>
-            
-            <div class="api-status" id="apiStatus">
-                <span class="status-indicator offline">●</span>
-                <span>API not configured</span>
-            </div>
-            
-            <div class="api-actions">
-                <button type="button" class="test-api-btn" onclick="manualTestApi()" disabled>Test Connection</button>
-                <button type="button" class="clear-all-btn" onclick="clearAllApiData()">Clear All Data</button>
-            </div>
-        </div>
-
-        <div class="page-builder-section" id="pageBuilderSection" style="display: none;">
-            <h3 class="customization-title">📋 Build Your Presentation</h3>
-            <p class="customization-description">Define each page and tell us what to extract from your CSV data</p>
-            
-            <div class="pages-container" id="pagesContainer">
-                <!-- Pages will be added dynamically -->
-            </div>
-            
-            <div class="builder-actions">
-                <button type="button" class="add-page-btn" onclick="addNewPage()">
-                    ➕ Add Page
-                </button>
-                <div class="builder-controls">
-                    <button type="button" class="preview-structure-btn" onclick="previewStructure()">
-                        👀 Preview Structure
-                    </button>
-                </div>
+            <div class="input-group">
+                <label for="surveyContext">Survey Purpose:</label>
+                <textarea id="surveyContext" placeholder="e.g. We surveyed the team to work out how we are working together and identify areas for improvement..." rows="3"></textarea>
+                <small>This helps the AI understand what kind of analysis to create</small>
             </div>
         </div>
 
@@ -70,11 +54,9 @@
             Generate Presentation
         </button>
         
-        <div class="share-section" id="shareSection">
+        <div class="share-section" id="shareSection" style="display: none;">
             <h3 class="share-title">🎉 Presentation Ready!</h3>
-            <div class="share-link" id="shareLink">
-                Click "Generate" to create your shareable link
-            </div>
+            <div class="share-link" id="shareLink"></div>
             <div class="share-actions">
                 <button class="copy-btn" onclick="copyShareLink()">📋 Copy Link</button>
                 <button class="preview-btn" onclick="previewPresentation()">👀 Preview</button>
