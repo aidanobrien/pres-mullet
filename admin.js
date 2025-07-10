@@ -243,14 +243,14 @@ async function askClaudeForPresentationStructure(responses, context, responseCou
     const apiEndpoint = getApiEndpoint();
     const analyzeUrl = apiEndpoint.includes('netlify') ? apiEndpoint : `${apiEndpoint}/claude`;
     
-    const prompt = `You are creating a presentation from survey data.
+    const prompt = `You are an expert survey analyst creating a comprehensive presentation from survey data.
 
 Survey Context: "${context}"
 
 Survey Responses (${responseCount} total):
 ${responses.slice(0, 30).map((response, index) => `${index + 1}. "${response}"`).join('\n')}
 
-Create a presentation structure. The first slide will be a cover slide with a short, catchy title. The last slide will be a thank you slide. Return ONLY this JSON format:
+Analyze these responses and create a comprehensive presentation structure. Return ONLY this JSON format:
 
 {
   "surveyType": "Short catchy title (3-5 words max based on context)",
@@ -264,12 +264,40 @@ Create a presentation structure. The first slide will be a cover slide with a sh
       ]
     },
     {
-      "title": "Main Findings",
+      "title": "Key Themes",
       "type": "feedback", 
       "content": [
-        {"title": "Key Theme 1", "content": "Detailed analysis with examples"},
-        {"title": "Key Theme 2", "content": "Another insight with examples"},
-        {"title": "Key Theme 3", "content": "Third major theme with examples"}
+        {"title": "Most Common Theme", "content": "Detailed insight with specific examples from responses"},
+        {"title": "Second Key Theme", "content": "Another insight with examples"},
+        {"title": "Third Important Theme", "content": "Third insight with examples"},
+        {"title": "Emerging Pattern", "content": "Additional insight with examples"}
+      ]
+    },
+    {
+      "title": "Positive Feedback",
+      "type": "feedback",
+      "content": [
+        {"title": "What's Working Well", "content": "Specific positive feedback with examples"},
+        {"title": "Strengths Identified", "content": "Another positive aspect with examples"},
+        {"title": "Success Stories", "content": "Examples of what people appreciate"}
+      ]
+    },
+    {
+      "title": "Areas for Improvement",
+      "type": "feedback",
+      "content": [
+        {"title": "Main Challenge", "content": "Key improvement area with examples"},
+        {"title": "Common Concern", "content": "Another improvement area with examples"},
+        {"title": "Opportunity", "content": "Additional area for enhancement"}
+      ]
+    },
+    {
+      "title": "Action Items",
+      "type": "feedback",
+      "content": [
+        {"title": "Immediate Actions", "content": "Quick wins based on feedback"},
+        {"title": "Medium-term Goals", "content": "Longer-term improvements suggested"},
+        {"title": "Key Recommendations", "content": "Strategic recommendations from the data"}
       ]
     },
     {
@@ -280,13 +308,16 @@ Create a presentation structure. The first slide will be a cover slide with a sh
   ]
 }
 
-Requirements:
+ANALYSIS REQUIREMENTS:
 - Create a SHORT, catchy title (3-5 words maximum) based on the survey context
-- The title should be presentation-ready and professional
-- Overview should ONLY show response count (no analysis sections count or other metrics)
-- Create 3-4 analysis slides with detailed insights (4-6 insights per slide)
-- Make content detailed with specific examples of what people actually said
-- Include multiple examples in each insight where possible
+- Generate 4-5 analysis pages with different perspectives on the data
+- Each page should have 3-4 specific insights
+- Look for patterns, themes, and actionable insights
+- Include specific examples from the actual survey responses
+- Identify both positive feedback and improvement areas
+- Provide actionable recommendations
+- Make insights valuable for decision-makers
+- Focus on what the data reveals about the topic surveyed
 - End with a thank you page (type: "thankyou")
 - Return ONLY the JSON, no other text`;
 
@@ -314,7 +345,7 @@ Requirements:
     } catch (error) {
         console.error('Claude API error:', error);
         
-        // Fallback structure
+        // Fallback structure with more comprehensive analysis
         return {
             surveyType: 'Team Feedback Survey',
             responseCount: responseCount,
@@ -327,10 +358,28 @@ Requirements:
                     ]
                 },
                 {
-                    title: "Key Feedback",
+                    title: "Key Themes",
                     type: "feedback",
                     content: [
-                        {"title": "Main Themes", "content": `Analysis of ${responseCount} survey responses: ${responses.slice(0, 3).join('. ')}`}
+                        {"title": "Main Theme", "content": `Primary pattern identified across ${responseCount} responses`},
+                        {"title": "Common Feedback", "content": "Recurring themes in the survey data"},
+                        {"title": "Notable Insights", "content": "Key observations from participant responses"}
+                    ]
+                },
+                {
+                    title: "Positive Feedback",
+                    type: "feedback",
+                    content: [
+                        {"title": "Strengths", "content": "Areas where participants expressed satisfaction"},
+                        {"title": "Success Areas", "content": "What's working well according to responses"}
+                    ]
+                },
+                {
+                    title: "Improvement Areas",
+                    type: "feedback",
+                    content: [
+                        {"title": "Opportunities", "content": "Areas identified for enhancement"},
+                        {"title": "Challenges", "content": "Common concerns raised by participants"}
                     ]
                 },
                 {
