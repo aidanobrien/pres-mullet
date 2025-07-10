@@ -652,10 +652,22 @@ async function testApiConnection(apiKey) {
         const data = await response.json();
         console.log('API Test Response:', response.status, data);
         
-        if (response.ok && data.status === 'connected') {
-            statusEl.innerHTML = '<span class="status-indicator online">●</span><span>API connected - ready for intelligent analysis!</span>';
-            window.claudeApiReady = true;
-        } else if (response.status === 401) {
+        // Handle the debug response
+        if (response.ok) {
+            if (data.status === 'connected' || data.status === 'NEW_FUNCTION_DEPLOYED') {
+                statusEl.innerHTML = '<span class="status-indicator online">●</span><span>API connected - ready for intelligent analysis!</span>';
+                window.claudeApiReady = true;
+                return;
+            }
+            
+            // If we get here, something unexpected happened
+            statusEl.innerHTML = `<span class="status-indicator offline">●</span><span>Unexpected response: ${JSON.stringify(data)}</span>`;
+            window.claudeApiReady = false;
+            return;
+        }
+        
+        // Handle error responses
+        if (response.status === 401) {
             statusEl.innerHTML = '<span class="status-indicator offline">●</span><span>Invalid API key - please check and try again</span>';
             window.claudeApiReady = false;
         } else if (response.status === 429) {

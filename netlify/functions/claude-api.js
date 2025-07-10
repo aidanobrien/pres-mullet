@@ -1,5 +1,5 @@
 // netlify/functions/claude-api.js
-// Debug version to check deployment
+// Working Claude API function
 
 exports.handler = async (event, context) => {
     const headers = {
@@ -21,39 +21,123 @@ exports.handler = async (event, context) => {
     }
 
     try {
-        const { apiKey, action = 'analyze' } = JSON.parse(event.body);
+        const { apiKey, prompt, maxTokens = 1000, action = 'analyze' } = JSON.parse(event.body);
 
-        // Return debug info to confirm new function is running
-        if (action === 'test') {
+        if (!apiKey) {
             return {
-                statusCode: 200,
+                statusCode: 400,
                 headers,
-                body: JSON.stringify({ 
-                    status: 'NEW_FUNCTION_DEPLOYED',
-                    timestamp: new Date().toISOString(),
-                    model: 'claude-3-haiku-20240307',
-                    message: 'If you see this, the new function is running!'
-                })
+                body: JSON.stringify({ error: 'API key required' })
             };
         }
 
-        // For analysis, also return debug info for now
-        return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify([{
-                title: "Debug Mode",
-                content: `New function deployed at ${new Date().toISOString()}. Using model: claude-3-haiku-20240307`
-            }])
-        };
+        // Test endpoint
+        if (action === 'test') {
+            try {
+                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': apiKey,
+                        'anthropic-version': '2023-06-01'
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-3-haiku-20240307',
+                        max_tokens: 10,
+                        messages: [{ 
+                            role: 'user', 
+                            content: 'Hi' 
+                        }]
+                    })
+                });
+
+                if (response.ok) {
+                    return {
+                        statusCode: 200,
+                        headers,
+                        body: JSON.stringify({ status: 'connected' })
+                    };
+                } else {
+                    const errorData = await response.json();
+                    return {
+                        statusCode: response.status,
+                        headers,
+                        body: JSON.stringify({ 
+                            status: 'failed', 
+                            error: errorData.error?.message || 'Unknown API error'
+                        })
+                    };
+                }
+            } catch (error) {
+                return {
+                    statusCode: 500,
+                    headers,
+                    body: JSON.stringify({ 
+                        status: 'failed', 
+                        error: 'Connection error: ' + error.message 
+                    })
+                };
+            }
+        }
+
+        // Analysis endpoint
+        try {
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify({
+                    model: 'claude-3-haiku-20240307',
+                    max_tokens: maxTokens,
+                    messages: [{ 
+                        role: 'user', 
+                        content: prompt 
+                    }]
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                return {
+                    statusCode: response.status,
+                    headers,
+                    body: JSON.stringify({
+                        error: data.error?.message || 'API request failed'
+                    })
+                };
+            }
+
+            // Transform response to match expected format
+            const transformedData = {
+                completion: data.content[0].text
+            };
+
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify(transformedData)
+            };
+
+        } catch (error) {
+            return {
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({ 
+                    error: 'Analysis error: ' + error.message 
+                })
+            };
+        }
 
     } catch (error) {
         return {
             statusCode: 500,
             headers,
             body: JSON.stringify({ 
-                error: 'Function error: ' + error.message,
-                timestamp: new Date().toISOString()
+                error: 'Function error: ' + error.message 
             })
         };
     }
