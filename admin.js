@@ -386,18 +386,26 @@ function analyzeData(data) {
         throw new Error('No presentation pages defined');
     }
     
-    // Generate content for each custom page
+    console.log(`Analyzing data for ${pages.length} pages...`);
+    
+    // Generate content for each page - MAKE SURE THIS RETURNS DATA
     const presentationData = {
         responseCount: data.data.length,
-        surveyType: 'Custom Survey',
+        surveyType: 'Survey Results',
         pages: []
     };
     
+    // Process each page synchronously first, then handle async
     pages.forEach((pageConfig, index) => {
+        console.log(`Processing page ${index + 1}: ${pageConfig.title}`);
+        
         const pageData = generateCustomPageContent(pageConfig, data);
         presentationData.pages.push(pageData);
+        
+        console.log(`Page ${index + 1} content:`, pageData);
     });
     
+    console.log('Final presentation data:', presentationData);
     return presentationData;
 }
 
