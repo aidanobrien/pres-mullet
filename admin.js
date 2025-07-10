@@ -242,12 +242,19 @@ Survey Context: "${context}"
 Survey Responses (${responseCount} total):
 ${responses.slice(0, 30).map((response, index) => `${index + 1}. "${response}"`).join('\n')}
 
-Create a 4-5 slide presentation structure. Return ONLY this JSON format:
+Create a 6-7 slide presentation structure. Return ONLY this JSON format:
 
 {
-  "surveyType": "Brief title for the survey",
+  "surveyType": "Brief presentation title (3-5 words max)",
   "responseCount": ${responseCount},
   "pages": [
+    {
+      "title": "Brief Title Here", 
+      "type": "cover",
+      "content": [
+        {"title": "Survey Results", "subtitle": "Brief description", "date": "Current period"}
+      ]
+    },
     {
       "title": "Survey Overview", 
       "type": "overview",
@@ -260,20 +267,26 @@ Create a 4-5 slide presentation structure. Return ONLY this JSON format:
       "title": "Main Findings",
       "type": "feedback", 
       "content": [
-        {"title": "Key Theme 1", "content": "Detailed analysis with multiple examples of what people said"},
-        {"title": "Key Theme 2", "content": "Another insight with specific examples"},
+        {"title": "Key Theme 1", "content": "Detailed analysis with multiple examples"},
+        {"title": "Key Theme 2", "content": "Another insight with examples"},
         {"title": "Key Theme 3", "content": "Third major theme with examples"}
+      ]
+    },
+    {
+      "title": "Thank You",
+      "type": "thankyou",
+      "content": [
+        {"title": "Thank you for your participation", "content": "Your feedback helps us improve and grow together."}
       ]
     }
   ]
 }
 
 Requirements:
-- Create 4-5 meaningful slides based on the actual survey responses
-- First slide should be "Survey Overview" with response count and ONE key metric
-- Other slides should analyze real themes from the responses
-- Each content item needs "title" and "content" fields
-- Provide 4-6 insights per slide, not just 1-2
+- Start with a cover page with a short, catchy title (3-5 words)
+- Include overview with response count and ONE key metric  
+- Create 3-4 analysis slides with detailed insights (4-6 per slide)
+- End with a thank you page
 - Make content detailed with specific examples of what people actually said
 - Include multiple examples in each insight where possible
 - Return ONLY the JSON, no other text`;
@@ -285,7 +298,7 @@ Requirements:
             body: JSON.stringify({
                 apiKey: localStorage.getItem('claude_api_key'),
                 prompt: prompt,
-                maxTokens: 3000,
+                maxTokens: 3500,
                 action: 'analyze'
             })
         });
@@ -302,11 +315,18 @@ Requirements:
     } catch (error) {
         console.error('Claude API error:', error);
         
-        // Fallback structure
+        // Fallback structure with cover and thank you pages
         return {
             surveyType: 'Survey Results',
             responseCount: responseCount,
             pages: [
+                {
+                    title: "Survey Results",
+                    type: "cover",
+                    content: [
+                        {"title": "Team Survey Results", "subtitle": "Insights and feedback", "date": "Recent findings"}
+                    ]
+                },
                 {
                     title: "Survey Overview",
                     type: "overview", 
@@ -319,6 +339,13 @@ Requirements:
                     type: "feedback",
                     content: [
                         {"title": "Main Themes", "content": `Analysis of ${responseCount} survey responses: ${responses.slice(0, 3).join('. ')}`}
+                    ]
+                },
+                {
+                    title: "Thank You",
+                    type: "thankyou",
+                    content: [
+                        {"title": "Thank you for your participation", "content": "Your feedback helps us improve and grow together."}
                     ]
                 }
             ]
