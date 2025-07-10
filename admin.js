@@ -242,32 +242,24 @@ Survey Context: "${context}"
 Survey Responses (${responseCount} total):
 ${responses.slice(0, 30).map((response, index) => `${index + 1}. "${response}"`).join('\n')}
 
-Create a 6-7 slide presentation structure. Return ONLY this JSON format:
+Create a presentation structure. Return ONLY this JSON format:
 
 {
-  "surveyType": "Brief presentation title (3-5 words max)",
+  "surveyType": "Short catchy title (3-5 words)",
   "responseCount": ${responseCount},
   "pages": [
-    {
-      "title": "Brief Title Here", 
-      "type": "cover",
-      "content": [
-        {"title": "Survey Results", "subtitle": "Brief description", "date": "Current period"}
-      ]
-    },
     {
       "title": "Survey Overview", 
       "type": "overview",
       "content": [
-        {"title": "Total Responses", "value": "${responseCount}", "description": "Survey participants"},
-        {"title": "Key Finding", "value": "X%", "description": "Main insight from responses"}
+        {"title": "Total Responses", "value": "${responseCount}", "description": "Survey participants"}
       ]
     },
     {
       "title": "Main Findings",
       "type": "feedback", 
       "content": [
-        {"title": "Key Theme 1", "content": "Detailed analysis with multiple examples"},
+        {"title": "Key Theme 1", "content": "Detailed analysis with examples"},
         {"title": "Key Theme 2", "content": "Another insight with examples"},
         {"title": "Key Theme 3", "content": "Third major theme with examples"}
       ]
@@ -275,20 +267,18 @@ Create a 6-7 slide presentation structure. Return ONLY this JSON format:
     {
       "title": "Thank You",
       "type": "thankyou",
-      "content": [
-        {"title": "Thank you for your participation", "content": "Your feedback helps us improve and grow together."}
-      ]
+      "content": []
     }
   ]
 }
 
 Requirements:
-- Start with a cover page with a short, catchy title (3-5 words)
-- Include overview with response count and ONE key metric  
+- Create a short, catchy title (3-5 words max) based on the survey context
+- Overview should ONLY show response count (no other metrics)
 - Create 3-4 analysis slides with detailed insights (4-6 per slide)
-- End with a thank you page
 - Make content detailed with specific examples of what people actually said
 - Include multiple examples in each insight where possible
+- End with a thank you page
 - Return ONLY the JSON, no other text`;
 
     try {
@@ -315,18 +305,11 @@ Requirements:
     } catch (error) {
         console.error('Claude API error:', error);
         
-        // Fallback structure with cover and thank you pages
+        // Fallback structure
         return {
             surveyType: 'Survey Results',
             responseCount: responseCount,
             pages: [
-                {
-                    title: "Survey Results",
-                    type: "cover",
-                    content: [
-                        {"title": "Team Survey Results", "subtitle": "Insights and feedback", "date": "Recent findings"}
-                    ]
-                },
                 {
                     title: "Survey Overview",
                     type: "overview", 
@@ -344,9 +327,7 @@ Requirements:
                 {
                     title: "Thank You",
                     type: "thankyou",
-                    content: [
-                        {"title": "Thank you for your participation", "content": "Your feedback helps us improve and grow together."}
-                    ]
+                    content: []
                 }
             ]
         };
