@@ -50,6 +50,26 @@
             </div>
         </div>
 
+        <div class="content-density-section" id="contentDensitySection" style="display: none;">
+            <h3 class="customization-title">📊 Content Detail Level</h3>
+            <p class="customization-description">Choose how much detail you want in your presentation</p>
+            
+            <div class="density-options">
+                <button type="button" class="density-btn" data-density="brief" onclick="selectDensity('brief')">
+                    Blah
+                    <div class="density-description">Brief & punchy</div>
+                </button>
+                <button type="button" class="density-btn" data-density="medium" onclick="selectDensity('medium')">
+                    Blah blah
+                    <div class="density-description">Balanced detail</div>
+                </button>
+                <button type="button" class="density-btn" data-density="detailed" onclick="selectDensity('detailed')">
+                    BLAH BLAH BLAH
+                    <div class="density-description">Comprehensive analysis</div>
+                </button>
+            </div>
+        </div>
+
         <button class="generate-btn" id="generateBtn" disabled onclick="generatePresentation()">
             Generate Presentation
         </button>

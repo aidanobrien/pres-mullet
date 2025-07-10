@@ -1,5 +1,17 @@
 let surveyData = null;
 let presentationData = null;
+let selectedDensity = 'medium'; // Default to medium
+
+// Content density selection
+function selectDensity(density) {
+    selectedDensity = density;
+    
+    // Update button states
+    document.querySelectorAll('.density-btn').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    document.querySelector(`[data-density="${density}"]`).classList.add('selected');
+}
 
 // Simple file upload
 function handleFileUpload(event) {
@@ -19,6 +31,9 @@ function handleFileUpload(event) {
             
             // Show context section
             document.getElementById('surveyContextSection').style.display = 'block';
+
+            // Show density section
+            document.getElementById('contentDensitySection').style.display = 'block';
             
             // Update upload area
             const uploadArea = document.getElementById('uploadArea');
@@ -261,7 +276,16 @@ async function askClaudeForPresentationStructure(responses, context, responseCou
     const apiEndpoint = getApiEndpoint();
     const analyzeUrl = apiEndpoint.includes('netlify') ? apiEndpoint : `${apiEndpoint}/claude`;
     
-    const prompt = `STOP! You must analyze the REAL survey responses below. Do NOT write generic descriptions. 
+    // Get content density instructions
+    const densityInstructions = {
+        'brief': 'Keep content very concise - 1-2 sentences per insight. Focus on key points only.',
+        'medium': 'Provide moderate detail - 2-3 sentences per insight with some examples.',
+        'detailed': 'Provide comprehensive analysis - 3-4 sentences per insight with multiple examples and quotes.'
+    };
+    
+    const prompt = `STOP! You must analyze the REAL survey responses below. Do NOT write generic descriptions.
+
+CONTENT DENSITY: ${densityInstructions[selectedDensity]}
 
 I'm giving you actual survey data to analyze. You must read each response and extract REAL themes, quotes, and insights.
 
@@ -345,7 +369,8 @@ RULES:
 - Don't say "areas identified" - say what the actual areas are
 - Use real words from real responses
 - If someone says "meetings are too long", write that, don't say "meeting duration concerns"
-- Be specific and use actual content from the responses above`;
+- Be specific and use actual content from the responses above
+- Follow the content density requirement: ${densityInstructions[selectedDensity]}`;
 
     try {
         const response = await fetch(analyzeUrl, {
@@ -464,6 +489,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('claudeApiKey').value = savedKey;
         handleApiKeyInput();
     }
+    
+    // Initialize density selector to medium
+    selectDensity('medium');
     
     // Drag and drop
     const uploadArea = document.getElementById('uploadArea');

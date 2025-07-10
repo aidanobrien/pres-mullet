@@ -152,7 +152,64 @@ body {
     background: #fee2e2;
 }
 
-/* Update existing styles */
+/* Content density selector styles */
+.content-density-section {
+    background: #f7fafc;
+    border-radius: 16px;
+    padding: 25px;
+    margin: 25px 0;
+    border: 2px solid #e2e8f0;
+}
+
+.density-options {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.density-btn {
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 15px 25px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #4a5568;
+    min-width: 120px;
+}
+
+.density-btn:hover {
+    border-color: #667eea;
+    background: #f7fafc;
+}
+
+.density-btn.selected {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.density-description {
+    font-size: 12px;
+    color: #718096;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+@media (max-width: 768px) {
+    .density-options {
+        flex-direction: column;
+    }
+    
+    .density-btn {
+        min-width: auto;
+    }
+}
 .page-builder-section {
     background: #f7fafc;
     border-radius: 16px;
@@ -1050,49 +1107,5 @@ body {
     
     .stat-label {
         font-size: 16px;
-    }
-}
-
-.cover-slide {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-}
-
-.cover-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-}
-
-.cover-title {
-    font-size: 48px !important;
-    font-weight: 800 !important;
-    color: white !important;
-    text-align: center !important;
-    line-height: 1.2 !important;
-    max-width: 80%;
-    margin: 0 !important;
-    text-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    background: none !important;
-    -webkit-background-clip: unset !important;
-    -webkit-text-fill-color: unset !important;
-    background-clip: unset !important;
-}
-
-/* Responsive cover styles */
-@media (max-width: 768px) {
-    .cover-title {
-        font-size: 36px !important;
-    }
-}
-
-@media (max-width: 480px) {
-    .cover-title {
-        font-size: 28px !important;
     }
 }
