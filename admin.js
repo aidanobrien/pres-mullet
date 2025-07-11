@@ -198,27 +198,14 @@ async function generatePresentation() {
         // Create simple presentation structure
         presentationData = await createSimplePresentation(surveyData, surveyContext);
         
-        // Generate shareable link - handle large data by using localStorage
+        // Generate shareable link - always use URL encoding for cross-device compatibility
         const compressedData = compressData(presentationData);
         const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', 'index.html');
+        const shareLink = `${baseUrl}?d=${compressedData}`;
         
-        let shareLink;
-        
-        // If the data is too large for URL (over 2000 chars), use localStorage
-        if (compressedData.length > 2000) {
-            const presentationId = 'presentation_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem(presentationId, JSON.stringify(presentationData));
-            
-            // Create a compact reference
-            const compactRef = btoa(JSON.stringify({
-                type: 'localStorage',
-                id: presentationId,
-                timestamp: Date.now()
-            }));
-            
-            shareLink = `${baseUrl}?d=${compactRef}`;
-        } else {
-            shareLink = `${baseUrl}?d=${compressedData}`;
+        // Check if URL might be too long and warn user
+        if (shareLink.length > 8000) {
+            console.warn('Long URL detected, may cause issues on some platforms');
         }
         
         // Show results
@@ -414,7 +401,23 @@ Quote actual things people wrote. Create page titles that make sense for this sp
 
 // Utility functions
 function compressData(data) {
-    const jsonString = JSON.stringify(data);
+    // Create a more compact version of the data
+    const compactData = {
+        st: data.surveyType || 'Survey',
+        rc: data.responseCount || 0,
+        p: (data.pages || []).map(page => ({
+            t: page.title,
+            ty: page.type,
+            c: (page.content || []).map(item => ({
+                t: item.title,
+                c: item.content,
+                v: item.value,
+                d: item.description
+            }))
+        }))
+    };
+    
+    const jsonString = JSON.stringify(compactData);
     return btoa(encodeURIComponent(jsonString));
 }
 
