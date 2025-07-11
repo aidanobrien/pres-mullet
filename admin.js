@@ -270,34 +270,34 @@ async function askClaudeForPresentationStructure(responses, context, responseCou
         'detailed': 'Provide comprehensive analysis - 3-4 sentences per insight with multiple examples and quotes.'
     };
     
-    const prompt = `Read these survey responses and create a presentation with real analysis.
+    const prompt = `Analyze these survey responses and create a professional presentation with real insights.
+
+CONTENT DENSITY: ${densityInstructions[selectedDensity]}
 
 Survey Context: "${context}"
 
 SURVEY RESPONSES:
 ${responses.slice(0, 50).map((response, index) => `"${response}"`).join('\n')}
 
-Analyze what you read above. Create page titles based on what you actually found. Quote real things people said.
+Create a presentation that analyzes and summarizes what you found. For each insight:
+1. Write a clear analytical summary of the pattern/theme
+2. Support it with specific examples or quotes from responses
+3. Make it actionable and meaningful
 
-Example of good content:
-- "Many people mentioned long meetings: 'too many meetings interrupt work' and 'meetings could be shorter'"
-- "Communication issues were common: 'information doesn't reach everyone' and 'we need better updates'"
+GOOD EXAMPLE:
+"Communication gaps are impacting team productivity. Multiple respondents highlighted issues with information flow, with comments like 'updates don't reach everyone' and 'we're often working with outdated information.' This suggests a need for more structured communication channels."
 
-Example of bad content (don't do this):
-- "Primary pattern identified across responses"
-- "Themes emerged from the data"
+BAD EXAMPLE:
+"Communication issues identified across responses"
+OR
+Just listing quotes: "'updates don't reach everyone' and 'we're working with outdated information'"
 
-Create a JSON presentation with:
-1. An overview page
-2. 3-4 analysis pages with titles that match what you found
-3. A thank you page
+Create page titles based on what you actually discovered in the responses.
 
-Make the page titles relevant to what people actually wrote about. Quote real responses.
-
-Return only JSON in this format:
+Return JSON format:
 
 {
-  "surveyType": "Title based on what you read",
+  "surveyType": "Descriptive title based on responses",
   "responseCount": ${responseCount},
   "pages": [
     {
@@ -308,30 +308,29 @@ Return only JSON in this format:
       ]
     },
     {
-      "title": "CREATE RELEVANT TITLE based on what you found",
+      "title": "Page title that reflects what you found",
       "type": "feedback", 
       "content": [
-        {"title": "Finding 1", "content": "Real quote or insight from responses"},
-        {"title": "Finding 2", "content": "Another real finding with quotes"},
-        {"title": "Finding 3", "content": "More real content from responses"}
+        {"title": "Insight title", "content": "Analytical summary explaining the finding, supported by examples like 'actual quote' and 'another quote.' Include what this means or suggests."},
+        {"title": "Another insight", "content": "Clear analysis with supporting evidence from responses and interpretation."},
+        {"title": "Third insight", "content": "Professional summary with quotes as evidence and actionable conclusion."}
       ]
     },
     {
-      "title": "CREATE ANOTHER RELEVANT TITLE",
+      "title": "Another relevant page title",
       "type": "feedback",
       "content": [
-        {"title": "Insight 1", "content": "Real content with actual quotes"},
-        {"title": "Insight 2", "content": "More real findings"},
-        {"title": "Insight 3", "content": "Actual response content"}
+        {"title": "Key finding", "content": "Analytical insight with quoted examples and clear interpretation."},
+        {"title": "Important pattern", "content": "Summary of trend with supporting quotes and implications."},
+        {"title": "Notable theme", "content": "Professional analysis with evidence and recommendations."}
       ]
     },
     {
-      "title": "CREATE THIRD RELEVANT TITLE",
+      "title": "Third page title based on data",
       "type": "feedback",
       "content": [
-        {"title": "Key point", "content": "Real insight with quotes"},
-        {"title": "Important finding", "content": "Actual content from responses"},
-        {"title": "Main takeaway", "content": "Real analysis with quotes"}
+        {"title": "Main conclusion", "content": "Thoughtful analysis with supporting examples and next steps."},
+        {"title": "Key takeaway", "content": "Clear summary with evidence and actionable insights."}
       ]
     },
     {
@@ -342,7 +341,12 @@ Return only JSON in this format:
   ]
 }
 
-Quote actual things people wrote. Create page titles that make sense for this specific survey.`;
+Requirements:
+- Analyze and summarize, don't just list quotes
+- Support analysis with specific examples from responses
+- Make insights actionable and meaningful
+- Create relevant page titles based on what you found
+- Balance analysis with evidence from actual responses`;
 
     try {
         const response = await fetch(analyzeUrl, {
